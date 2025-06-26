@@ -29,7 +29,7 @@ services:
       - ./backend/sql:/docker-entrypoint-initdb.d  # Optional: SQL init scripts
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 30s
       timeout: 10s
       retries: 3
