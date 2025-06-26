@@ -1,27 +1,100 @@
 {
+  // This config file handles TypeScript compilation for application code (src folder)
+  
   "compilerOptions": {
+    // Where TypeScript stores incremental build info for faster rebuilds
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    
+    // JavaScript target - ES2022 has great browser support and modern features
     "target": "ES2022",
+    
+    // Required for React class components
     "useDefineForClassFields": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    
+    // Library definitions - what JavaScript APIs TypeScript knows about
+    "lib": [
+      "ES2022",        // Modern JavaScript features (async/await, optional chaining, etc.)
+      "DOM",           // Browser APIs (document, window, etc.)
+      "DOM.Iterable"   // For...of loops with DOM collections
+    ],
+    
+    // Module system - ES modules
     "module": "ESNext",
+    
+    // Skip type checking of node_modules - speeds up compilation significantly
     "skipLibCheck": true,
 
-    /* Bundler mode */
+    /* Bundler mode - optimized for modern bundlers like Vite */
+    // Let bundlers handle module resolution instead of Node.js resolution
     "moduleResolution": "bundler",
+    
+    // Allow importing .ts/.tsx files with extensions (Vite handles this)
     "allowImportingTsExtensions": true,
+    
+    // Preserve import/export syntax exactly as written
     "verbatimModuleSyntax": true,
+    
+    // Treat all files as modules (even without import/export)
     "moduleDetection": "force",
+    
+    // Don't emit JavaScript files - Vite handles compilation
     "noEmit": true,
+    
+    // Use React 19's automatic JSX transform (no need to import React in every file)
     "jsx": "react-jsx",
 
-    /* Linting */
+    /* Path mapping - MUST match your Vite aliases exactly for IDE support */
+    // Base URL for relative path resolution
+    "baseUrl": ".",
+    
+    // Map import paths to actual file locations
+    "paths": {
+      "@/*": ["./src/*"],                    // @/components/Button -> src/components/Button
+      "@components/*": ["./src/components/*"], // @components/Button -> src/components/Button  
+      "@hooks/*": ["./src/hooks/*"],         // @hooks/useAuth -> src/hooks/useAuth
+      "@utils/*": ["./src/utils/*"],         // @utils/helpers -> src/utils/helpers
+      "@types/*": ["./src/types/*"],         // @types/User -> src/types/User
+      "@assets/*": ["./src/assets/*"],       // @assets/logo.png -> src/assets/logo.png
+      "@lib/*": ["./src/lib/*"],             // @lib/axios -> src/lib/axios
+      "@stores/*": ["./src/stores/*"],       // @stores/userStore -> src/stores/userStore
+      "@services/*": ["./src/services/*"],   // @services/api -> src/services/api
+      "@pages/*": ["./src/pages/*"]          // @pages/Home -> src/pages/Home (for React Router)
+    },
+
+    /* Strict type checking - these catch common bugs before runtime */
+    // Enable all strict type checks
     "strict": true,
+    
+    // Error on unused local variables (helps catch typos and dead code)
     "noUnusedLocals": true,
+    
+    // Error on unused function parameters
     "noUnusedParameters": true,
+    
+    // Required for isolated modules (Vite compiles files independently)
     "erasableSyntaxOnly": true,
+    
+    // Ensure switch statements handle all cases
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    
+    // Prevent importing modules that might have side effects
+    "noUncheckedSideEffectImports": true,
+    
+    /* Additional type safety - these are optional but highly recommended */
+    // Make optional properties truly optional (no undefined mixed with missing)
+    "exactOptionalPropertyTypes": true,
+    
+    // Ensure all code paths return a value when function should return something
+    "noImplicitReturns": true,
+    
+    // Prevent accessing object properties with string keys without explicit index signature
+    "noPropertyAccessFromIndexSignature": true,
+    
+    // Force checking for undefined when accessing array/object with computed keys
+    "noUncheckedIndexedAccess": true
   },
+  
+  // Only compile files in the src directory
+  // This excludes node_modules, build outputs, config files, etc.
   "include": ["src"]
 }
