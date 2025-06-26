@@ -1,6 +1,7 @@
 import { pool } from '../config/database';
 import { User, CreateUserRequest } from '../types/user';
 import { hashPassword } from '../utils/password';
+import { userChanged } from '../events/userEvents';
 
 export class UserModel {
   /**
@@ -22,7 +23,12 @@ export class UserModel {
     
     try {
       const result = await pool.query(query, values);
-      return result.rows[0];
+      const user = result.rows[0];
+      
+      // Emit user changed event (cache will be populated on first access)
+      userChanged(user.id);
+      
+      return user;
     } catch (error: any) {
       if (error.code === '23505') { // Unique violation
         throw new Error('User with this email already exists');
@@ -85,6 +91,102 @@ export class UserModel {
     `;
     
     const result = await pool.query(query, [newBalance, id]);
-    return result.rows[0] || null;
+    const user = result.rows[0] || null;
+    
+    // Emit user changed event if update was successful
+    if (user) {
+      userChanged(id);
+    }
+    
+    return user;
+  }
+
+  /**
+   * Update user profile
+   */
+  static async updateProfile(id: number, data: {
+    email?: string;
+    first_name?: string;
+    last_name?: string;
+  }): Promise<User | null> {
+    const updateFields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (data.email !== undefined) {
+      updateFields.push(`email = $${paramIndex++}`);
+      values.push(data.email);
+    }
+    if (data.first_name !== undefined) {
+      updateFields.push(`first_name = $${paramIndex++}`);
+      values.push(data.first_name);
+    }
+    if (data.last_name !== undefined) {
+      updateFields.push(`last_name = $${paramIndex++}`);
+      values.push(data.last_name);
+    }
+
+    if (updateFields.length === 0) {
+      return this.findById(id);
+    }
+
+    updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id);
+
+    const query = `
+      UPDATE users 
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING id, email, first_name, last_name, balance, created_at, updated_at
+    `;
+
+    const result = await pool.query(query, values);
+    const user = result.rows[0] || null;
+    
+    // Emit user changed event if update was successful
+    if (user) {
+      userChanged(id);
+    }
+    
+    return user;
+  }
+
+  /**
+   * Update user password
+   */
+  static async updatePassword(id: number, newPassword: string): Promise<boolean> {
+    const passwordHash = await hashPassword(newPassword);
+    
+    const query = `
+      UPDATE users 
+      SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `;
+
+    const result = await pool.query(query, [passwordHash, id]);
+    const success = (result.rowCount ?? 0) > 0;
+    
+    // Emit user changed event if update was successful
+    if (success) {
+      userChanged(id);
+    }
+    
+    return success;
+  }
+
+  /**
+   * Delete user
+   */
+  static async deleteById(id: number): Promise<boolean> {
+    const query = `DELETE FROM users WHERE id = $1`;
+    const result = await pool.query(query, [id]);
+    const success = (result.rowCount ?? 0) > 0;
+    
+    // Emit user changed event if deletion was successful
+    if (success) {
+      userChanged(id);
+    }
+    
+    return success;
   }
 }
