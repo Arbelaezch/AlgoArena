@@ -39,6 +39,65 @@ export function AuthProvider({ children }: AuthProviderProps) {
     error: null,
   });
 
+  // Creates a complete AuthState object with defaults and optional overrides.
+  const createAuthState = useCallback((overrides: Partial<AuthState> = {}): AuthState => ({
+    user: null,
+    isAuthenticated: false,
+    isLoading: false,
+    error: null,
+    ...overrides,
+  }), []);
+
+  // Resets auth state to default values (logged out state).
+  const resetAuthState = useCallback(() => {
+    setState(createAuthState());
+  }, [createAuthState]);
+
+  // Sets successful authentication state with user data.
+  const setAuthSuccess = useCallback((user: User) => {
+    setState(createAuthState({
+      user,
+      isAuthenticated: true,
+    }));
+  }, [createAuthState]);
+
+  /**
+   * Updates loading state and clears any existing errors.
+   * Used at the start of async auth operations.
+  */
+  const setLoading = useCallback((loading: boolean) => {
+    setState(prev => ({ ...prev, isLoading: loading, error: null }));
+  }, []);
+
+  /**
+   * Sets error state and stops loading.
+   * Used when auth operations fail.
+  */
+  const setError = useCallback((error: string) => {
+    setState(prev => ({ ...prev, isLoading: false, error }));
+  }, []);
+
+  /**
+   * Executes auth actions (login/register) with consistent error handling.
+   * Handles loading states, success scenarios, and error formatting.
+   * Re-throws errors so components can handle them if needed.
+  */
+  const executeAuthAction = useCallback(async (
+    action: () => Promise<{ user: User }>,
+    errorMessage: string
+  ): Promise<void> => {
+    setLoading(true);
+    
+    try {
+      const authData = await action();
+      setAuthSuccess(authData.user);
+    } catch (error: any) {
+      const message = error.response?.data?.error || errorMessage;
+      setError(message);
+      throw error; // Re-throw so component can handle it if needed
+    }
+  }, [setLoading, setAuthSuccess, setError]);
+
   // Initialize auth state on mount
   useEffect(() => {
     initializeAuth();
@@ -47,110 +106,86 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Listen for auth events (logout from token refresh failure)
   useEffect(() => {
     const handleAuthLogout = () => {
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
+      resetAuthState();
     };
 
     window.addEventListener('auth:logout', handleAuthLogout);
     return () => window.removeEventListener('auth:logout', handleAuthLogout);
-  }, []);
+  }, [resetAuthState]);
 
+  /**
+   * Initializes authentication state on app startup.
+   * Checks for existing valid tokens and loads user profile if authenticated.
+   * Gracefully handles initialization failures without showing errors to user.
+   */
   const initializeAuth = async () => {
     try {
       if (apiClient.isAuthenticated()) {
         const user = await apiClient.getProfile();
-        setState({
-          user,
-          isAuthenticated: true,
-          isLoading: false,
-          error: null,
-        });
+        setAuthSuccess(user);
       } else {
-        setState(prev => ({
-          ...prev,
-          isLoading: false,
-        }));
+        setState(prev => ({ ...prev, isLoading: false }));
       }
     } catch (error) {
       console.warn('Failed to initialize auth:', error);
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null, // Don't show error on initial load failure
-      });
+      resetAuthState();
     }
   };
 
+  /**
+   * Authenticates user with email/password credentials.
+   * Shows loading state, handles success/error scenarios.
+   * Re-throws errors for component-level handling (e.g., form validation).
+  */
   const login = useCallback(async (credentials: LoginRequest) => {
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
-    
-    try {
-      const authData = await apiClient.login(credentials);
-      setState({
-        user: authData.user,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-      });
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Login failed. Please try again.';
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: errorMessage,
-      }));
-      throw error; // Re-throw so component can handle it if needed
-    }
-  }, []);
+    await executeAuthAction(
+      () => apiClient.login(credentials),
+      'Login failed. Please try again.'
+    );
+  }, [executeAuthAction]);
 
+  /**
+   * Registers a new user account and automatically logs them in.
+   * Shows loading state, handles success/error scenarios.
+   * Re-throws errors for component-level handling.
+   */
   const register = useCallback(async (userData: RegisterRequest) => {
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
-    
-    try {
-      const authData = await apiClient.register(userData);
-      setState({
-        user: authData.user,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-      });
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Registration failed. Please try again.';
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: errorMessage,
-      }));
-      throw error; // Re-throw so component can handle it if needed
-    }
-  }, []);
+    await executeAuthAction(
+      () => apiClient.register(userData),
+      'Registration failed. Please try again.'
+    );
+  }, [executeAuthAction]);
 
+  /**
+   * Logs out the current user.
+   * Attempts to notify the server, but always clears local state regardless.
+   * Shows loading state during the process.
+   */
   const logout = useCallback(async () => {
-    setState(prev => ({ ...prev, isLoading: true }));
+    setLoading(true);
     
     try {
       await apiClient.logout();
     } catch (error) {
       console.warn('Logout request failed:', error);
     } finally {
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
+      resetAuthState();
     }
-  }, []);
+  }, [setLoading, resetAuthState]);
 
+  /**
+   * Clears any authentication error from the state.
+   * Used by UI components to dismiss error messages.
+  */
   const clearError = useCallback(() => {
     setState(prev => ({ ...prev, error: null }));
   }, []);
 
+  /**
+   * Refreshes the current user's profile data from the server.
+   * Updates user data without affecting authentication status.
+   * Silently fails to avoid disrupting user experience.
+  */
   const refreshProfile = useCallback(async () => {
     try {
       const user = await apiClient.getProfile();
@@ -168,7 +203,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     clearError,
     refreshProfile,
   };
-
 
   return createElement(AuthContext.Provider, { value }, children);
 }
