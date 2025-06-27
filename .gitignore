@@ -126,3 +126,5 @@ backups/
 
 # Docker
 dump.rdb
+
+/backup
