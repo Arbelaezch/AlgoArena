@@ -93,7 +93,8 @@ services:
       - ./frontend:/app      # Your host frontend/ → container /app
       - /app/node_modules    # Keep node_modules in container only
     environment:
-      VITE_API_URL: http://localhost:5000/api
+      VITE_BACKEND_BASE_URL: http://localhost:5000/    # Backend URL
+      VITE_BACKEND_API_URL: http://localhost:5000/api  # Backend URL
     depends_on:
       - backend
     restart: unless-stopped
