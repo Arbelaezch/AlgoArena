@@ -1,7 +1,8 @@
 import { useState, useEffect, createContext, useContext, useCallback, createElement } from 'react';
 import type { ReactNode } from 'react';
-import { apiClient } from '../../lib/api';
-import type { User, LoginRequest, RegisterRequest } from '../../../../backend/dist/types';
+
+import { apiClient } from '@/lib/api';
+import type { User, LoginRequest, RegisterRequest } from '@backend-types';
 
 
 interface AuthState {

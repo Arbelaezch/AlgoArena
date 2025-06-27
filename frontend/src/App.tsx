@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
-import { AuthProvider } from './hooks/auth/useAuth';
-import { AuthPage, DashboardPage } from './pages';
+
+import { AuthProvider } from '@/hooks/auth/useAuth';
+import { AuthPage, DashboardPage } from '@/pages';
 
 function App() {
   return (

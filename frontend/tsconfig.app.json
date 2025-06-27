@@ -58,7 +58,10 @@
       "@lib/*": ["./src/lib/*"],             // @lib/axios -> src/lib/axios
       "@stores/*": ["./src/stores/*"],       // @stores/userStore -> src/stores/userStore
       "@services/*": ["./src/services/*"],   // @services/api -> src/services/api
-      "@pages/*": ["./src/pages/*"]          // @pages/Home -> src/pages/Home (for React Router)
+      "@pages/*": ["./src/pages/*"],          // @pages/Home -> src/pages/Home (for React Router)
+
+      "@backend-types": ["../backend/dist/types/index"],
+      "@backend-types/*": ["../backend/dist/types/*"]
     },
 
     /* Strict type checking - these catch common bugs before runtime */

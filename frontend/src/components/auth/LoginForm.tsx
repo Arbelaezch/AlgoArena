@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../hooks/auth/useAuth';
+
+import { useAuth } from '@/hooks/auth/useAuth';
 
 const LoginForm: React.FC = () => {
   const { login, isLoading, error, clearError } = useAuth();

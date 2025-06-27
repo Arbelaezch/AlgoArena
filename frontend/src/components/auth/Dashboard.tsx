@@ -1,5 +1,6 @@
 import React from 'react';
-import { useAuth } from '../../hooks/auth/useAuth';
+
+import { useAuth } from '@/hooks/auth/useAuth';
 
 const Dashboard: React.FC = () => {
   const { user, logout, isLoading } = useAuth();

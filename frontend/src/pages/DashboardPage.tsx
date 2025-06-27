@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
-import { useAuth } from '../hooks/auth/useAuth';
 import { useNavigate } from 'react-router';
+
+import { useAuth } from '@/hooks/auth/useAuth';
+
 
 export function DashboardPage() {
   const { user, logout, isAuthenticated, isLoading } = useAuth();

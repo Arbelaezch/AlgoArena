@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/auth/useAuth';
+import { useAuth } from '@/hooks/auth/useAuth';
 import { useNavigate } from 'react-router';
 
 interface PasswordRequirement {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/auth/useAuth';
+
+import { useAuth } from '@/hooks/auth/useAuth';
 
 interface PasswordRequirements {
   length: boolean;

@@ -5,12 +5,15 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
+  envDir: '../',
+  
   plugins: [
     react(),
     tailwindcss(),
   ],
   
   resolve: {
+    /* Be sure to update aliases in tsconfig.app.json as well */
     alias: {
       // Main src alias - '@' points to src folder
       '@': path.resolve(__dirname, './src'),
@@ -25,6 +28,8 @@ export default defineConfig({
       '@stores': path.resolve(__dirname, './src/stores'),          // State management (Zustand, Redux)
       '@services': path.resolve(__dirname, './src/services'),      // API calls, external services
       '@pages': path.resolve(__dirname, './src/pages'),            // Route components (for React Router)
+
+      '@backend-types': path.resolve(__dirname, '../backend/dist/types'),
     },
   },
   
@@ -74,4 +79,4 @@ export default defineConfig({
       overlay: true,  // Show error overlay in browser during development
     },
   },
-})
+});
