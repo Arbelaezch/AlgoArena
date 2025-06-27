@@ -34,11 +34,6 @@ export function AuthPage() {
     }
   }, [isAuthenticated, navigate]);
 
-  // Clear error when switching tabs
-  useEffect(() => {
-    clearError();
-  }, [isLogin, clearError]);
-
   // Validate password requirements
   useEffect(() => {
     const newReqs: Record<string, boolean> = {};
