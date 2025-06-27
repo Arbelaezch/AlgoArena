@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLocation } from 'react-router';
 
 import { useAuth } from '@/hooks/auth/useAuth';
 
@@ -28,13 +28,16 @@ export function AuthPage() {
 
   const { login, register, isLoading, error, clearError, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      // Get the intended destination from ProtectedRoute or default to dashboard
+      const intendedDestination = (location.state as any)?.from || '/dashboard';
+      navigate(intendedDestination, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, location.state]);
 
   // Validate password requirements
   useEffect(() => {
