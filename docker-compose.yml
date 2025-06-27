@@ -43,8 +43,8 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./backend:/app
-      - /app/node_modules  # Anonymous volume for node_modules
+      - ./backend:/app      # Your host backend/ → container /app
+      - /app/node_modules   # Keep node_modules in container only
     environment:
       NODE_ENV: development
       PORT: 5000
@@ -79,7 +79,7 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    command: npm run devStart
+    command: npm run dev    # What process keeps this container alive
 
   # Frontend service
   frontend:
@@ -90,8 +90,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - ./frontend:/app      # Your host frontend/ → container /app
+      - /app/node_modules    # Keep node_modules in container only
     environment:
       VITE_API_URL: http://localhost:5000/api
     depends_on:
