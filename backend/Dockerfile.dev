@@ -15,4 +15,4 @@ COPY . .
 EXPOSE 5000
 
 # Start development server with nodemon
-CMD ["npm", "run", "devStart"]
+CMD ["npm", "run", "dev"]
