@@ -1,7 +1,8 @@
-import { useState, useEffect, createContext, useContext, createElement } from 'react';
+import { useState, useEffect, createContext, useContext, useCallback, createElement } from 'react';
 import type { ReactNode } from 'react';
-import type { User, LoginRequest, RegisterRequest } from '../../lib/api'; 
 import { apiClient } from '../../lib/api';
+import type { User, LoginRequest, RegisterRequest } from '../../../../backend/dist/types';
+
 
 interface AuthState {
   user: User | null;
@@ -74,7 +75,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }));
       }
     } catch (error) {
-      console.log('Failed to initialize auth:', error);
+      console.warn('Failed to initialize auth:', error);
       setState({
         user: null,
         isAuthenticated: false,
@@ -84,7 +85,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const login = async (credentials: LoginRequest) => {
+  const login = useCallback(async (credentials: LoginRequest) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
     
     try {
@@ -104,9 +105,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }));
       throw error; // Re-throw so component can handle it if needed
     }
-  };
+  }, []);
 
-  const register = async (userData: RegisterRequest) => {
+  const register = useCallback(async (userData: RegisterRequest) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
     
     try {
@@ -126,9 +127,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }));
       throw error; // Re-throw so component can handle it if needed
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     setState(prev => ({ ...prev, isLoading: true }));
     
     try {
@@ -143,20 +144,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
         error: null,
       });
     }
-  };
+  }, []);
 
-  const clearError = () => {
+  const clearError = useCallback(() => {
     setState(prev => ({ ...prev, error: null }));
-  };
+  }, []);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     try {
       const user = await apiClient.getProfile();
       setState(prev => ({ ...prev, user }));
     } catch (error) {
       console.warn('Failed to refresh profile:', error);
     }
-  };
+  }, []);
 
   const value: AuthContextType = {
     ...state,
