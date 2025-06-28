@@ -1,6 +1,7 @@
 import { getRedisClient } from '../config/redis';
 import { UserModel } from '../models/User';
 import { User } from '../types';
+import { createExternalServiceError, handleDatabaseError } from './errorHelpers';
 
 // Cache configuration
 const USER_CACHE_PREFIX = 'user:';
@@ -25,8 +26,10 @@ export const cacheUser = async (user: User, ttlSeconds: number = DEFAULT_CACHE_T
     // Store user data as JSON with expiration
     await redis.setEx(key, ttlSeconds, JSON.stringify(user));
   } catch (error) {
-    console.error('Error caching user:', error);
     // Don't throw - caching failure shouldn't break the flow
+    // But log with proper error handling
+    const redisError = createExternalServiceError('Redis', 'Failed to cache user data', error instanceof Error ? error : undefined);
+    console.error('Caching error (non-fatal):', redisError.message, redisError.details);
   }
 };
 
@@ -50,8 +53,9 @@ export const getUserFromCache = async (userId: number): Promise<User | null> => 
 
     return JSON.parse(cachedUser) as User;
   } catch (error) {
-    console.error('Error getting user from cache:', error);
     // Return null on cache errors - will fall back to database
+    const redisError = createExternalServiceError('Redis', 'Failed to get user from cache', error instanceof Error ? error : undefined);
+    console.error('Cache retrieval error (non-fatal):', redisError.message, redisError.details);
     return null;
   }
 };
@@ -67,8 +71,9 @@ export const cacheUserNotFound = async (userId: number): Promise<void> => {
     // Cache "null" for a shorter time to handle edge cases
     await redis.setEx(key, CACHE_MISS_TTL, 'null');
   } catch (error) {
-    console.error('Error caching user not found:', error);
     // Don't throw - caching failure shouldn't break the flow
+    const redisError = createExternalServiceError('Redis', 'Failed to cache user not found', error instanceof Error ? error : undefined);
+    console.error('Cache miss storage error (non-fatal):', redisError.message, redisError.details);
   }
 };
 
@@ -96,13 +101,20 @@ export const getUserWithCache = async (userId: number): Promise<User | null> => 
       return null;
     }
   } catch (error) {
-    console.error('Error getting user with cache:', error);
-    // Fall back to database query on cache errors
+    // For cache errors, fall back to database
+    if (error && typeof error === 'object' && 'service' in error && error.service === 'Redis') {
+      console.error('Cache error, falling back to database:', error);
+    } else {
+      // Database error - handle properly
+      console.error('Database error in getUserWithCache:', error);
+    }
+    
+    // Fall back to database query
     try {
       return await UserModel.findById(userId);
     } catch (dbError) {
-      console.error('Database fallback failed:', dbError);
-      return null;
+      // Both cache and DB failed - throw proper error
+      throw handleDatabaseError(dbError);
     }
   }
 };
@@ -117,8 +129,9 @@ export const invalidateUserCache = async (userId: number): Promise<void> => {
     
     await redis.del(key);
   } catch (error) {
-    console.error('Error invalidating user cache:', error);
     // Don't throw - cache invalidation failure shouldn't break the flow
+    const redisError = createExternalServiceError('Redis', 'Failed to invalidate user cache', error instanceof Error ? error : undefined);
+    console.error('Cache invalidation error (non-fatal):', redisError.message, redisError.details);
   }
 };
 
@@ -144,7 +157,11 @@ export const refreshUserCache = async (userId: number): Promise<User | null> => 
     }
   } catch (error) {
     console.error('Error refreshing user cache:', error);
-    return null;
+    // Re-throw database errors, but handle cache errors gracefully
+    if (error && typeof error === 'object' && 'service' in error && error.service === 'Redis') {
+      return null; // Cache error - return null
+    }
+    throw handleDatabaseError(error); // Database error - throw proper error
   }
 };
 
@@ -173,8 +190,7 @@ export const getUsersWithCache = async (userIds: number[]): Promise<(User | null
   // If we have uncached users, fetch them from database
   if (uncachedIds.length > 0) {
     try {
-      // Assuming you have a method to get multiple users by IDs
-      // If not, you'll need to implement this or use individual queries
+      // Fetch multiple users from database
       const uncachedUsers = await Promise.all(
         uncachedIds.map(id => UserModel.findById(id))
       );
@@ -194,7 +210,8 @@ export const getUsersWithCache = async (userIds: number[]): Promise<(User | null
         }
       }
     } catch (error) {
-      console.error('Error fetching uncached users:', error);
+      // Handle database errors properly
+      throw handleDatabaseError(error);
     }
   }
 

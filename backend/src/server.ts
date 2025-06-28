@@ -1,5 +1,5 @@
 import express from 'express';
-import type { Request, Response, Application, NextFunction } from 'express';
+import type { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -9,6 +9,8 @@ import path from 'path';
 import { connectDB } from './config/database';
 import { createRedisClient } from './config/redis';
 import { initializeUserCacheHandlers } from './events/userEvents';
+import { requestIdMiddleware, errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { sendSuccess } from './utils/responseHelpers';
 import authRoutes from './routes/auth';
 import routes from './routes';
 
@@ -27,9 +29,12 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Request ID middleware (must be early)
+app.use(requestIdMiddleware);
+
 // Health check route
-app.get('/health', (req: Request, res: Response) => {
-  res.status(200).json({ 
+app.get('/health', (req, res) => {
+  sendSuccess(res, {
     status: 'API is running successfully!',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
@@ -39,21 +44,9 @@ app.get('/health', (req: Request, res: Response) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 
-
-// 404 handler
-app.use((req: Request, res: Response) => {
-    res.status(404).json({
-      error: 'Route not found'
-    });
-});
-
-// Global error handler
-app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Unhandled error:', error);
-  res.status(500).json({
-    error: 'Internal server error'
-  });
-});
+// Error handling middleware (must be last)
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // Async function to start the server
 const startServer = async (): Promise<void> => {

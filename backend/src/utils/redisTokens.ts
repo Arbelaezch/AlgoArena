@@ -1,4 +1,5 @@
 import { getRedisClient } from '../config/redis';
+import { createExternalServiceError } from './errorHelpers';
 
 // Prefixes for different token types
 const BLACKLIST_PREFIX = 'blacklist:';
@@ -15,8 +16,7 @@ export const blacklistToken = async (token: string, expiryInSeconds: number = 7 
     // Store with expiration (7 days for refresh tokens, 15 minutes for access tokens)
     await redis.setEx(key, expiryInSeconds, '1');
   } catch (error) {
-    console.error('Error blacklisting token:', error);
-    throw new Error('Failed to blacklist token');
+    throw createExternalServiceError('Redis', 'Failed to blacklist token', error instanceof Error ? error : undefined);
   }
 };
 
@@ -31,8 +31,9 @@ export const isTokenBlacklisted = async (token: string): Promise<boolean> => {
     const result = await redis.get(key);
     return result !== null;
   } catch (error) {
-    console.error('Error checking token blacklist:', error);
-    // In case of Redis error, err on the side of caution
+    // In case of Redis error, err on the side of caution but log properly
+    const redisError = createExternalServiceError('Redis', 'Failed to check token blacklist', error instanceof Error ? error : undefined);
+    console.error('Token blacklist check error (failing safe):', redisError.message, redisError.details);
     return false;
   }
 };
@@ -47,8 +48,7 @@ export const storeRefreshToken = async (userId: number, token: string, expiryInS
     
     await redis.setEx(key, expiryInSeconds, JSON.stringify({ userId, createdAt: Date.now() }));
   } catch (error) {
-    console.error('Error storing refresh token:', error);
-    throw new Error('Failed to store refresh token');
+    throw createExternalServiceError('Redis', 'Failed to store refresh token', error instanceof Error ? error : undefined);
   }
 };
 
@@ -62,8 +62,9 @@ export const removeRefreshToken = async (userId: number, token: string): Promise
     
     await redis.del(key);
   } catch (error) {
-    console.error('Error removing refresh token:', error);
-    // Don't throw - this is cleanup, continue anyway
+    // Don't throw - this is cleanup, continue anyway but log properly
+    const redisError = createExternalServiceError('Redis', 'Failed to remove refresh token', error instanceof Error ? error : undefined);
+    console.error('Token removal error (non-fatal):', redisError.message, redisError.details);
   }
 };
 
@@ -78,7 +79,8 @@ export const getUserRefreshTokens = async (userId: number): Promise<string[]> =>
     const keys = await redis.keys(pattern);
     return keys.map(key => key.replace(`${REFRESH_TOKEN_PREFIX}${userId}:`, ''));
   } catch (error) {
-    console.error('Error getting user refresh tokens:', error);
+    const redisError = createExternalServiceError('Redis', 'Failed to get user refresh tokens', error instanceof Error ? error : undefined);
+    console.error('Get refresh tokens error:', redisError.message, redisError.details);
     return [];
   }
 };
@@ -96,7 +98,6 @@ export const revokeAllUserTokens = async (userId: number): Promise<void> => {
       await redis.del(keys);
     }
   } catch (error) {
-    console.error('Error revoking all user tokens:', error);
-    throw new Error('Failed to revoke user tokens');
+    throw createExternalServiceError('Redis', 'Failed to revoke user tokens', error instanceof Error ? error : undefined);
   }
 };

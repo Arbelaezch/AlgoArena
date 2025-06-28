@@ -1,6 +1,9 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 
 import { getRedisClient } from '../config/redis';
+import { createExternalServiceError } from './errorHelpers';
+import { ERROR_CODES } from '../types/error';
+import { AppError } from '../errors/AppError';
 
 export interface RateLimitConfig {
   windowMs: number;                         // Time window in milliseconds
@@ -57,12 +60,13 @@ export const createRateLimit = (config: RateLimitConfig) => {
           'Retry-After': ttl.toString()
         });
 
-        res.status(429).json({
-          error: 'Too many requests',
-          message: `Rate limit exceeded. Try again in ${ttl} seconds.`,
-          retryAfter: ttl
-        });
-        return;
+        // Throw proper error instead of manual response
+        throw new AppError(
+          ERROR_CODES.RATE_LIMIT_EXCEEDED,
+          `Rate limit exceeded. Try again in ${ttl} seconds.`,
+          429,
+          { retryAfter: ttl, resetTime: resetTime.toISOString() }
+        );
       }
 
       // Increment counter
@@ -88,7 +92,16 @@ export const createRateLimit = (config: RateLimitConfig) => {
       next();
 
     } catch (error) {
-      console.error('Rate limiter error:', error);
+      // If it's already an AppError (rate limit exceeded), just pass it through
+      if (error instanceof AppError) {
+        next(error);
+        return;
+      }
+
+      // Handle Redis errors properly but fail open
+      const redisError = createExternalServiceError('Redis', 'Rate limiter error', error instanceof Error ? error : undefined);
+      console.error('Rate limiter error (failing open):', redisError.message, redisError.details);
+      
       // On Redis errors, allow the request through (fail open)
       next();
     }
@@ -167,7 +180,8 @@ export const getRateLimitStatus = async (req: Request, prefix: string = 'rate_li
       resetTime: new Date(Date.now() + (ttl * 1000))
     };
   } catch (error) {
-    console.error('Error getting rate limit status:', error);
+    const redisError = createExternalServiceError('Redis', 'Failed to get rate limit status', error instanceof Error ? error : undefined);
+    console.error('Rate limit status error:', redisError.message, redisError.details);
     return null;
   }
 };
@@ -183,7 +197,6 @@ export const resetRateLimit = async (req: Request, prefix: string = 'rate_limit'
     const result = await redis.del(key);
     return result > 0;
   } catch (error) {
-    console.error('Error resetting rate limit:', error);
-    return false;
+    throw createExternalServiceError('Redis', 'Failed to reset rate limit', error instanceof Error ? error : undefined);
   }
 };

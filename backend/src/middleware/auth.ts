@@ -1,9 +1,11 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Response, NextFunction } from 'express';
 
 import { verifyAccessToken, extractTokenFromHeader } from '../utils/jwt';
 import { AuthenticatedRequest } from '../types/request';
 import { isTokenBlacklisted } from '../utils/redisTokens';
 import { getUserWithCache } from '../utils/userCache';
+import { createAuthError } from '../utils/errorHelpers';
+import { ERROR_CODES } from '../types/error';
 
 /**
  * Middleware to verify JWT token and attach user to request
@@ -19,19 +21,13 @@ export const authenticateToken = async (
     const token = extractTokenFromHeader(authHeader);
 
     if (!token) {
-      res.status(401).json({
-        error: 'Access token is required'
-      });
-      return;
+      throw createAuthError(ERROR_CODES.UNAUTHORIZED, 'Access token is required');
     }
 
     // Check if token is blacklisted (optional - for immediate revocation)
     const isBlacklisted = await isTokenBlacklisted(token);
     if (isBlacklisted) {
-      res.status(401).json({
-        error: 'Token has been revoked'
-      });
-      return;
+      throw createAuthError(ERROR_CODES.UNAUTHORIZED, 'Token has been revoked');
     }
 
     // Verify token
@@ -40,10 +36,7 @@ export const authenticateToken = async (
     // Get user from cache first, then database if not cached
     const user = await getUserWithCache(decoded.userId);
     if (!user) {
-      res.status(401).json({
-        error: 'User not found'
-      });
-      return;
+      throw createAuthError(ERROR_CODES.UNAUTHORIZED, 'User not found');
     }
 
     // Attach user to request
@@ -51,10 +44,7 @@ export const authenticateToken = async (
     next();
 
   } catch (error) {
-    console.error('Authentication error:', error);
-    res.status(401).json({
-      error: 'Invalid or expired access token'
-    });
+    next(error); // Let the error handler middleware handle it
   }
 };
 
