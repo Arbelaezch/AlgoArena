@@ -1,7 +1,7 @@
 import type { AxiosInstance } from 'axios';
 import axios from 'axios';
 
-import type { User, LoginRequest, RegisterRequest, AuthResponse, RefreshTokenResponse } from '@backend-types';
+import type { UserEntity, LoginRequest, RegisterRequest, AuthResponse, RefreshTokenResponse } from '@backend-types';
 import { parseApiError, createNetworkError } from '@/utils/errorUtils';
 
 class TokenManager {
@@ -191,11 +191,11 @@ export class ApiClient {
     }
   }
 
-  async getProfile(): Promise<User> {
+  async getProfile(): Promise<UserEntity> {
     try {
       const response = await this.client.get<{
         success: true;
-        data: { user: User };
+        data: { user: UserEntity };
         message: string;
       }>('/auth/profile');
       

@@ -1,6 +1,6 @@
 import { getRedisClient } from '../config/redis';
-import { UserModel } from '../models/User';
-import { User } from '../types';
+import { User } from '../models/User';
+import { UserEntity } from '../types';
 import { createExternalServiceError, handleDatabaseError } from './errorHelpers';
 
 // Cache configuration
@@ -18,7 +18,7 @@ const getUserCacheKey = (userId: number): string => {
 /**
  * Cache user data in Redis
  */
-export const cacheUser = async (user: User, ttlSeconds: number = DEFAULT_CACHE_TTL): Promise<void> => {
+export const cacheUser = async (user: UserEntity, ttlSeconds: number = DEFAULT_CACHE_TTL): Promise<void> => {
   try {
     const redis = getRedisClient();
     const key = getUserCacheKey(user.id);
@@ -36,7 +36,7 @@ export const cacheUser = async (user: User, ttlSeconds: number = DEFAULT_CACHE_T
 /**
  * Get user from cache
  */
-export const getUserFromCache = async (userId: number): Promise<User | null> => {
+export const getUserFromCache = async (userId: number): Promise<UserEntity | null> => {
   try {
     const redis = getRedisClient();
     const key = getUserCacheKey(userId);
@@ -51,7 +51,7 @@ export const getUserFromCache = async (userId: number): Promise<User | null> => 
       return null;
     }
 
-    return JSON.parse(cachedUser) as User;
+    return JSON.parse(cachedUser) as UserEntity;
   } catch (error) {
     // Return null on cache errors - will fall back to database
     const redisError = createExternalServiceError('Redis', 'Failed to get user from cache', error instanceof Error ? error : undefined);
@@ -80,7 +80,7 @@ export const cacheUserNotFound = async (userId: number): Promise<void> => {
 /**
  * Get user with caching - checks cache first, falls back to database
  */
-export const getUserWithCache = async (userId: number): Promise<User | null> => {
+export const getUserWithCache = async (userId: number): Promise<UserEntity | null> => {
   try {
     // Try cache first
     const cachedUser = await getUserFromCache(userId);
@@ -89,7 +89,7 @@ export const getUserWithCache = async (userId: number): Promise<User | null> => 
     }
 
     // Cache miss - get from database
-    const user = await UserModel.findById(userId);
+    const user = await User.findById(userId);
     
     if (user) {
       // Cache the user for future requests
@@ -111,7 +111,7 @@ export const getUserWithCache = async (userId: number): Promise<User | null> => 
     
     // Fall back to database query
     try {
-      return await UserModel.findById(userId);
+      return await User.findById(userId);
     } catch (dbError) {
       // Both cache and DB failed - throw proper error
       throw handleDatabaseError(dbError);
@@ -138,13 +138,13 @@ export const invalidateUserCache = async (userId: number): Promise<void> => {
 /**
  * Refresh user cache (get from DB and update cache)
  */
-export const refreshUserCache = async (userId: number): Promise<User | null> => {
+export const refreshUserCache = async (userId: number): Promise<UserEntity | null> => {
   try {
     // First invalidate existing cache
     await invalidateUserCache(userId);
     
     // Get fresh data from database
-    const user = await UserModel.findById(userId);
+    const user = await User.findById(userId);
     
     if (user) {
       // Cache the fresh data
@@ -168,8 +168,8 @@ export const refreshUserCache = async (userId: number): Promise<User | null> => 
 /**
  * Get multiple users with caching (batch operation)
  */
-export const getUsersWithCache = async (userIds: number[]): Promise<(User | null)[]> => {
-  const results: (User | null)[] = [];
+export const getUsersWithCache = async (userIds: number[]): Promise<(UserEntity | null)[]> => {
+  const results: (UserEntity | null)[] = [];
   const uncachedIds: number[] = [];
   const uncachedIndices: number[] = [];
 
@@ -192,7 +192,7 @@ export const getUsersWithCache = async (userIds: number[]): Promise<(User | null
     try {
       // Fetch multiple users from database
       const uncachedUsers = await Promise.all(
-        uncachedIds.map(id => UserModel.findById(id))
+        uncachedIds.map(id => User.findById(id))
       );
 
       // Cache the results and update the results array

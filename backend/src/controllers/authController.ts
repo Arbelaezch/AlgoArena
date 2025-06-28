@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 
-import { UserModel } from '../models/User';
+import { User } from '../models/User';
 import { generateTokenPair, verifyRefreshToken } from '../utils/jwt';
 import { comparePassword, validatePassword } from '../utils/password';
 import { 
@@ -64,7 +64,7 @@ export const register = asyncHandler(async (req: Request<{}, {}, CreateUserReque
 
   try {
     // Create user
-    const user = await UserModel.create({
+    const user = await User.create({
       email: email.toLowerCase().trim(),
       password,
       first_name: first_name?.trim(),
@@ -117,7 +117,7 @@ export const login = asyncHandler(async (req: Request<{}, {}, LoginRequest>, res
   }
 
   // Find user with password hash
-  const userWithPassword = await UserModel.findByEmailWithPassword(email.toLowerCase().trim());
+  const userWithPassword = await User.findByEmailWithPassword(email.toLowerCase().trim());
   
   if (!userWithPassword) {
     throw createAuthError(ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email or password');
@@ -190,7 +190,7 @@ export const refreshToken = asyncHandler(async (req: Request<{}, {}, RefreshToke
   }
 
   // Verify user still exists and is active
-  const user = await UserModel.findById(decoded.userId);
+  const user = await User.findById(decoded.userId);
   if (!user) {
     throw createNotFoundError('User', decoded.userId);
   }

@@ -1,5 +1,5 @@
 import { pool, query, queryOne, queryMany, queryExists, withTransaction } from '../config/database';
-import { User, CreateUserRequest } from '../types/user';
+import { UserEntity, CreateUserRequest } from '../types/user';
 import { hashPassword } from '../utils/password';
 import { userChanged } from '../events/userEvents';
 
@@ -8,11 +8,11 @@ const USER_FIELDS = 'id, email, username, first_name, last_name, balance, create
 const USER_FIELDS_WITH_PASSWORD = 'id, email, username, password_hash, first_name, last_name, balance, created_at, updated_at';
 const USER_RETURNING_FIELDS = 'id, email, username, first_name, last_name, balance, created_at, updated_at';
 
-export class UserModel {
+export class User {
   /**
    * Create a new user
    */
-  static async create(userData: CreateUserRequest): Promise<User> {
+  static async create(userData: CreateUserRequest): Promise<UserEntity> {
     const { email, password, username, first_name, last_name } = userData;
     
     // Hash the password
@@ -27,7 +27,7 @@ export class UserModel {
     const values = [email, username, passwordHash, first_name, last_name];
     
     try {
-      const user = await queryOne<User>(sql, values);
+      const user = await queryOne<UserEntity>(sql, values);
       if (!user) {
         throw new Error('Failed to create user');
       }
@@ -53,79 +53,79 @@ export class UserModel {
   /**
    * Find user by email
    */
-  static async findByEmail(email: string): Promise<User | null> {
+  static async findByEmail(email: string): Promise<UserEntity | null> {
     const sql = `
       SELECT ${USER_FIELDS}
       FROM users 
       WHERE email = $1
     `;
     
-    return queryOne<User>(sql, [email]);
+    return queryOne<UserEntity>(sql, [email]);
   }
 
   /**
    * Find user by username
    */
-  static async findByUsername(username: string): Promise<User | null> {
+  static async findByUsername(username: string): Promise<UserEntity | null> {
     const sql = `
       SELECT ${USER_FIELDS}
       FROM users 
       WHERE username = $1
     `;
     
-    return queryOne<User>(sql, [username]);
+    return queryOne<UserEntity>(sql, [username]);
   }
 
   /**
    * Find user by email or username
    */
-  static async findByEmailOrUsername(identifier: string): Promise<User | null> {
+  static async findByEmailOrUsername(identifier: string): Promise<UserEntity | null> {
     const sql = `
       SELECT ${USER_FIELDS}
       FROM users 
       WHERE email = $1 OR username = $1
     `;
     
-    return queryOne<User>(sql, [identifier]);
+    return queryOne<UserEntity>(sql, [identifier]);
   }
 
   /**
    * Find user by email with password hash (for authentication)
    */
-  static async findByEmailWithPassword(email: string): Promise<(User & { password_hash: string }) | null> {
+  static async findByEmailWithPassword(email: string): Promise<(UserEntity & { password_hash: string }) | null> {
     const sql = `
       SELECT ${USER_FIELDS_WITH_PASSWORD}
       FROM users 
       WHERE email = $1
     `;
     
-    return queryOne<User & { password_hash: string }>(sql, [email]);
+    return queryOne<UserEntity & { password_hash: string }>(sql, [email]);
   }
 
   /**
    * Find user by email or username with password hash (for authentication)
    */
-  static async findByEmailOrUsernameWithPassword(identifier: string): Promise<(User & { password_hash: string }) | null> {
+  static async findByEmailOrUsernameWithPassword(identifier: string): Promise<(UserEntity & { password_hash: string }) | null> {
     const sql = `
       SELECT ${USER_FIELDS_WITH_PASSWORD}
       FROM users 
       WHERE email = $1 OR username = $1
     `;
     
-    return queryOne<User & { password_hash: string }>(sql, [identifier]);
+    return queryOne<UserEntity & { password_hash: string }>(sql, [identifier]);
   }
 
   /**
    * Find user by ID
    */
-  static async findById(id: number): Promise<User | null> {
+  static async findById(id: number): Promise<UserEntity | null> {
     const sql = `
       SELECT ${USER_FIELDS}
       FROM users 
       WHERE id = $1
     `;
     
-    return queryOne<User>(sql, [id]);
+    return queryOne<UserEntity>(sql, [id]);
   }
 
   /**
@@ -147,7 +147,7 @@ export class UserModel {
   /**
    * Update user balance
    */
-  static async updateBalance(id: number, newBalance: number): Promise<User | null> {
+  static async updateBalance(id: number, newBalance: number): Promise<UserEntity | null> {
     const sql = `
       UPDATE users 
       SET balance = $1, updated_at = CURRENT_TIMESTAMP
@@ -155,7 +155,7 @@ export class UserModel {
       RETURNING ${USER_RETURNING_FIELDS}
     `;
     
-    const user = await queryOne<User>(sql, [newBalance, id]);
+    const user = await queryOne<UserEntity>(sql, [newBalance, id]);
     
     // Emit user changed event if update was successful
     if (user) {
@@ -168,7 +168,7 @@ export class UserModel {
   /**
    * Update user profile - Now with dynamic field building!
    */
-  static async updateProfile(id: number, data: Partial<Pick<User, 'email' | 'username' | 'first_name' | 'last_name'>>): Promise<User | null> {
+  static async updateProfile(id: number, data: Partial<Pick<UserEntity, 'email' | 'username' | 'first_name' | 'last_name'>>): Promise<UserEntity | null> {
     const updateFields = [];
     const values = [];
     let paramIndex = 1;
@@ -196,7 +196,7 @@ export class UserModel {
     `;
 
     try {
-      const user = await queryOne<User>(sql, values);
+      const user = await queryOne<UserEntity>(sql, values);
       
       // Emit user changed event if update was successful
       if (user) {
@@ -302,7 +302,7 @@ export class UserModel {
   /**
    * Get all users with pagination (for admin)
    */
-  static async findAll(page = 1, limit = 10): Promise<{ users: User[]; total: number }> {
+  static async findAll(page = 1, limit = 10): Promise<{ users: UserEntity[]; total: number }> {
     const offset = (page - 1) * limit;
     
     // Get users
@@ -312,7 +312,7 @@ export class UserModel {
       ORDER BY created_at DESC 
       LIMIT $1 OFFSET $2
     `;
-    const users = await queryMany<User>(usersSql, [limit, offset]);
+    const users = await queryMany<UserEntity>(usersSql, [limit, offset]);
     
     // Get total count
     const countSql = 'SELECT COUNT(*) as total FROM users';
@@ -325,7 +325,7 @@ export class UserModel {
   /**
    * Search users by name, email, or username
    */
-  static async search(searchTerm: string, page = 1, limit = 10): Promise<User[]> {
+  static async search(searchTerm: string, page = 1, limit = 10): Promise<UserEntity[]> {
     const offset = (page - 1) * limit;
     const searchPattern = `%${searchTerm.toLowerCase()}%`;
     
@@ -342,7 +342,7 @@ export class UserModel {
       LIMIT $2 OFFSET $3
     `;
     
-    return queryMany<User>(sql, [searchPattern, limit, offset]);
+    return queryMany<UserEntity>(sql, [searchPattern, limit, offset]);
   }
 
   /**
@@ -365,7 +365,7 @@ export class UserModel {
   /**
    * Get users with low balance (for notifications)
    */
-  static async getUsersWithLowBalance(threshold = 10): Promise<User[]> {
+  static async getUsersWithLowBalance(threshold = 10): Promise<UserEntity[]> {
     const sql = `
       SELECT ${USER_FIELDS}
       FROM users 
@@ -373,13 +373,13 @@ export class UserModel {
       ORDER BY balance ASC
     `;
     
-    return queryMany<User>(sql, [threshold]);
+    return queryMany<UserEntity>(sql, [threshold]);
   }
 
   /**
    * Verify user credentials (for login)
    */
-  static async verifyCredentials(identifier: string, password: string): Promise<User | null> {
+  static async verifyCredentials(identifier: string, password: string): Promise<UserEntity | null> {
     const userWithPassword = await this.findByEmailOrUsernameWithPassword(identifier);
     if (!userWithPassword) {
       return null;

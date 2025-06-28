@@ -1,4 +1,4 @@
-export interface User {
+export interface UserEntity {
     id: number;
     email: string;
     username: string;
@@ -18,7 +18,7 @@ export interface CreateUserRequest {
     last_name?: string;
 }
 
-export interface UserProfile extends Omit<User, 'password_hash'> {}
+export interface UserProfile extends Omit<UserEntity, 'password_hash'> {}
 
 // Future user types might include:
 // export interface UpdateUserRequest { ... }

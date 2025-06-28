@@ -2,12 +2,12 @@ import { useState, useEffect, createContext, useContext, useCallback, createElem
 import type { ReactNode } from 'react';
 
 import { apiClient } from '@/lib/api';
-import type { User, LoginRequest, RegisterRequest } from '@backend-types';
+import type { UserEntity, LoginRequest, RegisterRequest } from '@backend-types';
 import { type AppError } from '@/types/error';
 import { parseApiError, getUserFriendlyMessage } from '@/utils/errorUtils';
 
 interface AuthState {
-  user: User | null;
+  user: UserEntity | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [createAuthState]);
 
   // Sets successful authentication state with user data.
-  const setAuthSuccess = useCallback((user: User) => {
+  const setAuthSuccess = useCallback((user: UserEntity) => {
     setState(createAuthState({
       user,
       isAuthenticated: true,
@@ -108,7 +108,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
    * Re-throws errors so components can handle them if needed.
   */
   const executeAuthAction = useCallback(async (
-    action: () => Promise<{ user: User }>,
+    action: () => Promise<{ user: UserEntity }>,
   ): Promise<void> => {
     setLoading(true);
     

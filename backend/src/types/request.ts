@@ -1,10 +1,10 @@
 import { Request } from 'express';
 
-import { User } from './user';
+import { UserEntity } from './user';
 
 // Request object with authenticated user
 export interface AuthenticatedRequest extends Request {
-  user?: User;
+  user?: UserEntity;
 }
 
 // export interface PaginatedRequest extends Request {

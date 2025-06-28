@@ -1,4 +1,4 @@
-import { User } from './user';
+import { UserEntity } from './user';
 
 export interface LoginRequest {
   email: string;
@@ -16,7 +16,7 @@ export interface RegisterRequest {
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
-  user: Omit<User, 'password_hash'>;
+  user: Omit<UserEntity, 'password_hash'>;
 }
 
 export interface RefreshTokenRequest {
