@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+
 import { jwtConfig } from '../config/jwt';
 import { JWTPayload } from '../types/auth';
 

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+
 import { verifyAccessToken, extractTokenFromHeader } from '../utils/jwt';
 import { AuthenticatedRequest } from '../types/request';
 import { isTokenBlacklisted } from '../utils/redisTokens';

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+
 import { UserModel } from '../models/User';
 import { generateTokenPair, verifyRefreshToken } from '../utils/jwt';
 import { comparePassword, validatePassword } from '../utils/password';

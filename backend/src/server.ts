@@ -4,13 +4,15 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import path from 'path';
+
 import { connectDB } from './config/database';
 import { createRedisClient } from './config/redis';
 import { initializeUserCacheHandlers } from './events/userEvents';
 import authRoutes from './routes/auth';
 import routes from './routes';
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const app: Application = express();
 const port = process.env.PORT || 5000;

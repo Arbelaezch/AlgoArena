@@ -1,12 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
+
 import { getRedisClient } from '../config/redis';
 
 export interface RateLimitConfig {
-  windowMs: number;     // Time window in milliseconds
-  maxRequests: number;  // Max requests per window
-  keyGenerator?: (req: Request) => string; // Custom key generation
-  skipSuccessfulRequests?: boolean; // Don't count successful requests
-  skipFailedRequests?: boolean;     // Don't count failed requests
+  windowMs: number;                         // Time window in milliseconds
+  maxRequests: number;                      // Max requests per window
+  keyGenerator?: (req: Request) => string;  // Custom key generation
+  skipSuccessfulRequests?: boolean;         // Don't count successful requests
+  skipFailedRequests?: boolean;             // Don't count failed requests
 }
 
 export interface RateLimitInfo {

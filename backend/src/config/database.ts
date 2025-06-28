@@ -1,7 +1,8 @@
 import { Pool, PoolConfig, PoolClient } from 'pg';
 import dotenv from 'dotenv';
+import path from 'path';
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // Database configuration interface
 interface DatabaseConfig extends PoolConfig {

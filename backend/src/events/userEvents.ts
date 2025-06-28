@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+
 import { invalidateUserCache } from '../utils/userCache';
 
 // Single event emitter for user changes
