@@ -34,6 +34,25 @@ services:
       timeout: 10s
       retries: 3
 
+  # Migration service
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: algoarena-migrate
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - migration  # This makes it only run when explicitly called
+    command: npm run migrate:up
+
   # Backend service
   backend:
     build:
@@ -79,7 +98,7 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    command: npm run dev    # What process keeps this container alive
+    command: sh -c "npm run migrate:up && npm run dev"    # The process keeps this service alive
 
   # Frontend service
   frontend:

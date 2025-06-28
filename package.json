@@ -1,0 +1,11 @@
+{
+    "name": "algoarena-monorepo",
+    "private": true,
+    "scripts": {
+      "migrate:create": "docker-compose exec backend npm run migrate:create",
+      "migrate:up": "docker-compose exec backend npm run migrate:up",
+      "migrate:down": "docker-compose exec backend npm run migrate:down",
+      "migrate:status": "docker-compose exec backend npm run migrate:status",
+      "migrate:redo": "docker-compose exec backend npm run migrate:redo"
+    }
+}
