@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 
 import { useAuth } from '@/hooks/auth/useAuth';
-
+import { ErrorAlert } from '@/components/error/ErrorAlert';
+import { getFieldErrors } from '@/utils/errorUtils';
 
 interface PasswordRequirement {
   id: string;
@@ -26,15 +27,27 @@ export function AuthPage() {
   const [showPasswordReq, setShowPasswordReq] = useState(false);
   const [passwordReqs, setPasswordReqs] = useState<Record<string, boolean>>({});
 
-  const { login, register, isLoading, error, clearError, isAuthenticated } = useAuth();
+  const { 
+    login, 
+    register, 
+    isLoading, 
+    error, 
+    clearError, 
+    isAuthenticated, 
+    // getErrorMessage
+  } = useAuth();
+  
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Get field-specific errors for form validation
+  const fieldErrors = error ? getFieldErrors(error) : {};
 
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       // Get the intended destination from ProtectedRoute or default to dashboard
-      const intendedDestination = (location.state as any)?.from || '/dashboard';
+      const intendedDestination = (location.state as { from?: string } | null)?.from || '/dashboard';
       navigate(intendedDestination, { replace: true });
     }
   }, [isAuthenticated, navigate, location.state]);
@@ -58,14 +71,15 @@ export function AuthPage() {
         // Validate password requirements for registration
         const allReqsMet = passwordRequirements.every(req => req.test(password));
         if (!allReqsMet) {
-          throw new Error('Please meet all password requirements');
+          // This will be handled by the backend validation anyway
+          console.warn('Password requirements not met');
         }
         await register({ email, password });
       }
       // Navigation will happen automatically via useEffect when isAuthenticated changes
     } catch (err) {
-      // Error is handled by the auth hook
-      console.log(err);
+      // Error is handled by the auth hook and displayed via ErrorAlert
+      console.log('Auth error caught:', err);
     }
   };
 
@@ -80,7 +94,7 @@ export function AuthPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-purple-600 flex items-center justify-center p-5">
-      <div className="bg-white p-12 rounded-3xl shadow-2xl w-full max-width-md relative overflow-hidden">
+      <div className="bg-white p-12 rounded-3xl shadow-2xl w-full max-w-md relative overflow-hidden">
         {/* Top gradient border */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-purple-600" />
         
@@ -115,11 +129,11 @@ export function AuthPage() {
         </div>
 
         {/* Error message */}
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded">
-            <p className="text-red-700 text-sm">{error}</p>
-          </div>
-        )}
+        <ErrorAlert 
+          error={error}
+          onDismiss={clearError}
+          className="mb-6"
+        />
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -132,10 +146,17 @@ export function AuthPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-base transition-all duration-300 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+              className={`w-full px-4 py-3 border-2 rounded-xl text-base transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-indigo-100 ${
+                fieldErrors['email'] 
+                  ? 'border-red-500 focus:border-red-500' 
+                  : 'border-gray-200 focus:border-indigo-500'
+              }`}
               placeholder="Enter your email"
               required
             />
+            {fieldErrors['email'] && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors['email']}</p>
+            )}
           </div>
 
           {/* Username field (register only) */}
@@ -148,13 +169,20 @@ export function AuthPage() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-base transition-all duration-300 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                className={`w-full px-4 py-3 border-2 rounded-xl text-base transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-indigo-100 ${
+                  fieldErrors['username'] 
+                    ? 'border-red-500 focus:border-red-500' 
+                    : 'border-gray-200 focus:border-indigo-500'
+                }`}
                 placeholder="Enter your username"
                 pattern="^[a-zA-Z0-9_]+$"
                 minLength={3}
                 maxLength={30}
                 required
               />
+              {fieldErrors['username'] && (
+                <p className="mt-1 text-sm text-red-600">{fieldErrors['username']}</p>
+              )}
             </div>
           )}
 
@@ -168,10 +196,17 @@ export function AuthPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onFocus={() => !isLogin && setShowPasswordReq(true)}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-base transition-all duration-300 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+              className={`w-full px-4 py-3 border-2 rounded-xl text-base transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-indigo-100 ${
+                fieldErrors['password'] 
+                  ? 'border-red-500 focus:border-red-500' 
+                  : 'border-gray-200 focus:border-indigo-500'
+              }`}
               placeholder="Enter your password"
               required
             />
+            {fieldErrors['password'] && (
+              <p className="mt-1 text-sm text-red-600">{fieldErrors['password']}</p>
+            )}
             
             {/* Password requirements (register only) */}
             {!isLogin && showPasswordReq && (

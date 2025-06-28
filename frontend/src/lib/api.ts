@@ -2,7 +2,7 @@ import type { AxiosInstance } from 'axios';
 import axios from 'axios';
 
 import type { User, LoginRequest, RegisterRequest, AuthResponse, RefreshTokenResponse } from '@backend-types';
-
+import { parseApiError, createNetworkError } from '@/utils/errorUtils';
 
 class TokenManager {
   private static readonly ACCESS_TOKEN_KEY = 'accessToken';
@@ -57,7 +57,7 @@ export class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
-      withCredentials: true, // For cookies if you're using them
+      withCredentials: true,
     });
 
     this.setupInterceptors();
@@ -73,10 +73,10 @@ export class ApiClient {
         }
         return config;
       },
-      (error) => Promise.reject(error)
+      (error) => Promise.reject(parseApiError(error))
     );
 
-    // Response interceptor - handle token refresh
+    // Response interceptor - handle token refresh and errors
     this.client.interceptors.response.use(
       (response) => response,
       async (error) => {
@@ -91,11 +91,11 @@ export class ApiClient {
             return this.client(originalRequest);
           } catch (refreshError) {
             this.handleAuthFailure();
-            return Promise.reject(refreshError);
+            return Promise.reject(parseApiError(refreshError));
           }
         }
 
-        return Promise.reject(error);
+        return Promise.reject(parseApiError(error));
       }
     );
   }
@@ -110,7 +110,7 @@ export class ApiClient {
     try {
       const refreshToken = TokenManager.getRefreshToken();
       if (!refreshToken) {
-        throw new Error('No refresh token available');
+        throw createNetworkError('No refresh token available');
       }
 
       this.refreshPromise = this.performTokenRefresh(refreshToken);
@@ -124,23 +124,28 @@ export class ApiClient {
   }
 
   private async performTokenRefresh(refreshToken: string): Promise<string> {
-    const response = await axios.post<{
-      message: string;
-      data: RefreshTokenResponse;
-    }>(`${this.client.defaults.baseURL}/auth/refresh-token`, {
-      refreshToken,
-    }, {
-      withCredentials: true,
-    });
+    try {
+      const response = await axios.post<{
+        success: true;
+        data: RefreshTokenResponse;
+        message: string;
+      }>(`${this.client.defaults.baseURL}/auth/refresh-token`, {
+        refreshToken,
+      }, {
+        withCredentials: true,
+      });
 
-    const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-    
-    TokenManager.setTokens(
-      accessToken, 
-      newRefreshToken || refreshToken
-    );
+      const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+      
+      TokenManager.setTokens(
+        accessToken, 
+        newRefreshToken || refreshToken
+      );
 
-    return accessToken;
+      return accessToken;
+    } catch (error) {
+      throw parseApiError(error);
+    }
   }
 
   private handleAuthFailure(): void {
@@ -153,43 +158,60 @@ export class ApiClient {
 
   // Auth endpoints
   async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response = await this.client.post<{
-      message: string;
-      data: AuthResponse;
-    }>('/auth/login', credentials);
-    
-    const authData = response.data.data;
-    TokenManager.setTokens(authData.accessToken, authData.refreshToken);
-    
-    return authData;
+    try {
+      const response = await this.client.post<{
+        success: true;
+        data: AuthResponse;
+        message: string;
+      }>('/auth/login', credentials);
+      
+      const authData = response.data.data;
+      TokenManager.setTokens(authData.accessToken, authData.refreshToken);
+      
+      return authData;
+    } catch (error) {
+      throw parseApiError(error);
+    }
   }
 
   async register(userData: RegisterRequest): Promise<AuthResponse> {
-    const response = await this.client.post<{
-      message: string;
-      data: AuthResponse;
-    }>('/auth/register', userData);
-    
-    const authData = response.data.data;
-    TokenManager.setTokens(authData.accessToken, authData.refreshToken);
-    
-    return authData;
+    try {
+      const response = await this.client.post<{
+        success: true;
+        data: AuthResponse;
+        message: string;
+      }>('/auth/register', userData);
+      
+      const authData = response.data.data;
+      TokenManager.setTokens(authData.accessToken, authData.refreshToken);
+      
+      return authData;
+    } catch (error) {
+      throw parseApiError(error);
+    }
   }
 
   async getProfile(): Promise<User> {
-    const response = await this.client.get<{
-      message: string;
-      data: { user: User };
-    }>('/auth/profile');
-    
-    return response.data.data.user;
+    try {
+      const response = await this.client.get<{
+        success: true;
+        data: { user: User };
+        message: string;
+      }>('/auth/profile');
+      
+      return response.data.data.user;
+    } catch (error) {
+      throw parseApiError(error);
+    }
   }
 
   async logout(): Promise<void> {
     try {
-      await this.client.post('/auth/logout');
+      await this.client.post('/auth/logout', {
+        refreshToken: TokenManager.getRefreshToken()
+      });
     } catch (error) {
-      console.warn('Logout request failed:', error);
+      console.warn('Logout request failed:', parseApiError(error));
     } finally {
       TokenManager.clearTokens();
       if (typeof window !== 'undefined') {

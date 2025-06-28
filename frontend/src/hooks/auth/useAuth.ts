@@ -3,21 +3,24 @@ import type { ReactNode } from 'react';
 
 import { apiClient } from '@/lib/api';
 import type { User, LoginRequest, RegisterRequest } from '@backend-types';
-
+import { type AppError } from '@/types/error';
+import { parseApiError, getUserFriendlyMessage } from '@/utils/errorUtils';
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  error: string | null;
 }
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginRequest) => Promise<void>;
   register: (userData: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
-  clearError: () => void;
   refreshProfile: () => Promise<void>;
+  error: AppError | null;
+  isError: boolean;
+  clearError: () => void;
+  getErrorMessage: () => string;
 }
 
 // Create Auth Context with explicit initial value
@@ -36,21 +39,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     user: null,
     isAuthenticated: false,
     isLoading: true,
-    error: null,
   });
+
+  const [error, setError] = useState<AppError | null>(null);
 
   // Creates a complete AuthState object with defaults and optional overrides.
   const createAuthState = useCallback((overrides: Partial<AuthState> = {}): AuthState => ({
     user: null,
     isAuthenticated: false,
     isLoading: false,
-    error: null,
     ...overrides,
   }), []);
 
   // Resets auth state to default values (logged out state).
   const resetAuthState = useCallback(() => {
     setState(createAuthState());
+    setError(null);
   }, [createAuthState]);
 
   // Sets successful authentication state with user data.
@@ -59,6 +63,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       user,
       isAuthenticated: true,
     }));
+    setError(null);
   }, [createAuthState]);
 
   /**
@@ -66,16 +71,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
    * Used at the start of async auth operations.
   */
   const setLoading = useCallback((loading: boolean) => {
-    setState(prev => ({ ...prev, isLoading: loading, error: null }));
+    setState(prev => ({ ...prev, isLoading: loading }));
+    if (loading) setError(null);
   }, []);
 
   /**
    * Sets error state and stops loading.
    * Used when auth operations fail.
   */
-  const setError = useCallback((error: string) => {
-    setState(prev => ({ ...prev, isLoading: false, error }));
+  const setAuthError = useCallback((error: unknown) => {
+    const appError = parseApiError(error);
+    setError(appError);
+    setState(prev => ({ ...prev, isLoading: false }));
   }, []);
+
+  /**
+   * Clears any authentication error from the state.
+   * Used by UI components to dismiss error messages.
+  */
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  /**
+   * Gets user-friendly error message.
+   * Returns empty string if no error.
+  */
+  const getErrorMessage = useCallback(() => {
+    if (!error) return '';
+    return getUserFriendlyMessage(error);
+  }, [error]);
 
   /**
    * Executes auth actions (login/register) with consistent error handling.
@@ -84,19 +109,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   */
   const executeAuthAction = useCallback(async (
     action: () => Promise<{ user: User }>,
-    errorMessage: string
   ): Promise<void> => {
     setLoading(true);
     
     try {
       const authData = await action();
       setAuthSuccess(authData.user);
-    } catch (error: any) {
-      const message = error.response?.data?.error || errorMessage;
-      setError(message);
+    } catch (error: unknown) {
+      setAuthError(error);
       throw error; // Re-throw so component can handle it if needed
     }
-  }, [setLoading, setAuthSuccess, setError]);
+  }, [setLoading, setAuthSuccess, setAuthError]);
 
   // Initialize auth state on mount
   useEffect(() => {
@@ -139,8 +162,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   */
   const login = useCallback(async (credentials: LoginRequest) => {
     await executeAuthAction(
-      () => apiClient.login(credentials),
-      'Login failed. Please try again.'
+      () => apiClient.login(credentials)
     );
   }, [executeAuthAction]);
 
@@ -151,8 +173,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
    */
   const register = useCallback(async (userData: RegisterRequest) => {
     await executeAuthAction(
-      () => apiClient.register(userData),
-      'Registration failed. Please try again.'
+      () => apiClient.register(userData)
     );
   }, [executeAuthAction]);
 
@@ -174,18 +195,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [setLoading, resetAuthState]);
 
   /**
-   * Clears any authentication error from the state.
-   * Used by UI components to dismiss error messages.
-  */
-  const clearError = useCallback(() => {
-    setState(prev => ({ ...prev, error: null }));
-  }, []);
-
-  /**
    * Refreshes the current user's profile data from the server.
    * Updates user data without affecting authentication status.
    * Silently fails to avoid disrupting user experience.
-  */
+   */
   const refreshProfile = useCallback(async () => {
     try {
       const user = await apiClient.getProfile();
@@ -200,8 +213,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     register,
     logout,
-    clearError,
     refreshProfile,
+    error,
+    isError: error !== null,
+    clearError,
+    getErrorMessage,
   };
 
   return createElement(AuthContext.Provider, { value }, children);
@@ -218,13 +234,13 @@ export function useAuth(): AuthContextType {
 
 // Additional hooks for specific auth operations
 export function useLogin() {
-  const { login, isLoading, error } = useAuth();
-  return { login, isLoading, error };
+  const { login, isLoading, error, clearError, getErrorMessage } = useAuth();
+  return { login, isLoading, error, clearError, getErrorMessage };
 }
 
 export function useRegister() {
-  const { register, isLoading, error } = useAuth();
-  return { register, isLoading, error };
+  const { register, isLoading, error, clearError, getErrorMessage } = useAuth();
+  return { register, isLoading, error, clearError, getErrorMessage };
 }
 
 export function useLogout() {
