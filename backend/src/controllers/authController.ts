@@ -25,7 +25,7 @@ import {
   createAuthError,
   handleDatabaseError 
 } from '../utils/errorHelpers';
-import { sendSuccess, sendCreated } from '../utils/responseHelpers';
+import { sendSuccessResponse, sendCreatedResponse } from '../utils/responseHelpers';
 import { ERROR_CODES } from '../types/error';
 
 /**
@@ -86,7 +86,7 @@ export const register = asyncHandler(async (req: Request<{}, {}, CreateUserReque
       user
     };
 
-    sendCreated(res, response, 'User registered successfully');
+    sendCreatedResponse(res, response, 'User registered successfully');
 
   } catch (error: unknown) {
     if (error && typeof error === 'object' && 'message' in error && 
@@ -148,7 +148,7 @@ export const login = asyncHandler(async (req: Request<{}, {}, LoginRequest>, res
     user
   };
 
-  sendSuccess(res, response, 'Login successful');
+  sendSuccessResponse(res, response, 'Login successful');
 });
 
 /**
@@ -159,7 +159,7 @@ export const getProfile = asyncHandler(async (req: AuthenticatedRequest, res: Re
     throw createAuthError(ERROR_CODES.UNAUTHORIZED, 'User not authenticated');
   }
 
-  sendSuccess(res, { user: req.user }, 'Profile retrieved successfully');
+  sendSuccessResponse(res, { user: req.user }, 'Profile retrieved successfully');
 });
 
 /**
@@ -215,7 +215,7 @@ export const refreshToken = asyncHandler(async (req: Request<{}, {}, RefreshToke
     refreshToken: tokens.refreshToken // Always rotate refresh token
   };
 
-  sendSuccess(res, response, 'Token refreshed successfully');
+  sendSuccessResponse(res, response, 'Token refreshed successfully');
 });
 
 /**
@@ -247,5 +247,5 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
   //   await blacklistToken(accessToken, 15 * 60); // 15 minutes (access token expiry)
   // }
 
-  sendSuccess(res, null, 'Logout successful');
+  sendSuccessResponse(res, null, 'Logout successful');
 });

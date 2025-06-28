@@ -10,7 +10,7 @@ import { connectDB } from './config/database';
 import { createRedisClient } from './config/redis';
 import { initializeUserCacheHandlers } from './events/userEvents';
 import { requestIdMiddleware, errorHandler, notFoundHandler } from './middleware/errorHandler';
-import { sendSuccess } from './utils/responseHelpers';
+import { sendSuccessResponse } from './utils/responseHelpers';
 import authRoutes from './routes/auth';
 import routes from './routes';
 
@@ -34,7 +34,7 @@ app.use(requestIdMiddleware);
 
 // Health check route
 app.get('/health', (req, res) => {
-  sendSuccess(res, {
+  sendSuccessResponse(res, {
     status: 'API is running successfully!',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'

@@ -17,7 +17,7 @@ interface SuccessResponse<T = unknown> {
   };
 }
 
-export const sendSuccess = <T = unknown>(
+export const sendSuccessResponse = <T = unknown>(
   res: Response,
   data: T,
   message?: string,
@@ -34,19 +34,19 @@ export const sendSuccess = <T = unknown>(
   res.status(statusCode).json(response);
 };
 
-export const sendCreated = <T = unknown>(res: Response, data: T, message?: string): void => {
-  sendSuccess(res, data, message || 'Resource created successfully', 201);
+export const sendCreatedResponse = <T = unknown>(res: Response, data: T, message?: string): void => {
+  sendSuccessResponse(res, data, message || 'Resource created successfully', 201);
 };
 
-export const sendUpdated = <T = unknown>(res: Response, data: T, message?: string): void => {
-  sendSuccess(res, data, message || 'Resource updated successfully', 200);
+export const sendUpdatedResponse = <T = unknown>(res: Response, data: T, message?: string): void => {
+  sendSuccessResponse(res, data, message || 'Resource updated successfully', 200);
 };
 
-export const sendDeleted = (res: Response, message?: string): void => {
-  sendSuccess(res, null, message || 'Resource deleted successfully', 200);
+export const sendDeletedResponse = (res: Response, message?: string): void => {
+  sendSuccessResponse(res, null, message || 'Resource deleted successfully', 200);
 };
 
-export const sendPaginated = <T = unknown>(
+export const sendPaginatedResponse = <T = unknown>(
   res: Response,
   data: T[],
   pagination: Omit<PaginationMeta, 'pages'>,
@@ -54,7 +54,7 @@ export const sendPaginated = <T = unknown>(
 ): void => {
   const pages = Math.ceil(pagination.total / pagination.limit);
   
-  sendSuccess(res, data, message, 200, {
+  sendSuccessResponse(res, data, message, 200, {
     pagination: { ...pagination, pages }
   });
 };
