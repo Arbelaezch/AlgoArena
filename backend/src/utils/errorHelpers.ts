@@ -16,7 +16,7 @@ export const createNotFoundError = (resource: string, id?: string | number): Not
   return new NotFoundError(resource, id);
 };
 
-export const createConflictError = (message?: string, details?: ErrorDetails): ConflictError => {
+export const createConflictError = (message?: string, details?: ErrorDetails | ErrorDetails[]): ConflictError => {
   return new ConflictError(message, details);
 };
 
