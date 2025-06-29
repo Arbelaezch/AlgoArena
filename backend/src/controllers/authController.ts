@@ -38,14 +38,16 @@ import { ERROR_CODES } from '../types/error';
  * Register a new user
  */
 export const register = asyncHandler(async (req: Request<{}, {}, CreateUserRequest>, res: Response) => {
-  const { email, password, first_name, last_name } = req.body;
+  const { email, password, username, first_name, last_name } = req.body;
 
   // Validate required fields
-  if (!email || !password) {
-    throw createValidationError('Email and password are required', [
-      { field: 'email', message: 'Email is required' },
-      { field: 'password', message: 'Password is required' }
-    ]);
+  if (!email || !password || !username) {
+    const errors = [];
+    if (!email) errors.push({ field: 'email', message: 'Email is required' });
+    if (!password) errors.push({ field: 'password', message: 'Password is required' });
+    if (!username) errors.push({ field: 'username', message: 'Username is required' });
+    
+    throw createValidationError('Email, password, and username are required', errors);
   }
 
   // Validate email format
@@ -55,6 +57,25 @@ export const register = asyncHandler(async (req: Request<{}, {}, CreateUserReque
       field: 'email',
       value: email,
       constraint: 'email_format'
+    });
+  }
+
+  // Validate username format
+  const usernameRegex = /^[a-zA-Z0-9_]+$/;
+  if (!usernameRegex.test(username)) {
+    throw createValidationError('Username can only contain letters, numbers, and underscores', {
+      field: 'username',
+      value: username,
+      constraint: 'username_format'
+    });
+  }
+
+  // Validate username length
+  if (username.length < 3 || username.length > 30) {
+    throw createValidationError('Username must be between 3 and 30 characters', {
+      field: 'username',
+      value: username,
+      constraint: 'username_length'
     });
   }
 
@@ -69,10 +90,11 @@ export const register = asyncHandler(async (req: Request<{}, {}, CreateUserReque
   }
 
   try {
-    // Create user
+    // Create user - ensure username is properly passed and trimmed
     const user = await User.create({
       email: email.toLowerCase().trim(),
       password,
+      username: username.trim(),
       first_name: first_name?.trim(),
       last_name: last_name?.trim()
     });
@@ -98,12 +120,26 @@ export const register = asyncHandler(async (req: Request<{}, {}, CreateUserReque
     sendCreatedResponse(res, response, 'User registered successfully');
 
   } catch (error: unknown) {
-    if (error && typeof error === 'object' && 'message' in error && 
-        error.message === 'User with this email already exists') {
-      throw createConflictError('User with this email already exists', {
-        field: 'email',
-        value: email
-      });
+    // Handle specific user creation errors
+    if (error && typeof error === 'object' && 'message' in error) {
+      if (error.message === 'User with this email already exists') {
+        throw createConflictError('User with this email already exists', {
+          field: 'email',
+          value: email
+        });
+      }
+      if (error.message === 'Username is already taken') {
+        throw createConflictError('Username is already taken', {
+          field: 'username',
+          value: username
+        });
+      }
+      if (error.message === 'User with this email or username already exists') {
+        throw createConflictError('User with this email or username already exists', [
+          { field: 'email', message: 'Email may already be in use' },
+          { field: 'username', message: 'Username may already be taken' }
+        ]);
+      }
     }
 
     // Handle database-specific errors
@@ -125,18 +161,18 @@ export const login = asyncHandler(async (req: Request<{}, {}, LoginRequest>, res
     ]);
   }
 
-  // Find user with password hash
-  const userWithPassword = await User.findByEmailWithPassword(email.toLowerCase().trim());
+  // Find user with password hash (support both email and username for login)
+  const userWithPassword = await User.findByEmailOrUsernameWithPassword(email.toLowerCase().trim());
   
   if (!userWithPassword) {
-    throw createAuthError(ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email or password');
+    throw createAuthError(ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email/username or password');
   }
 
   // Verify password
   const isPasswordValid = await comparePassword(password, userWithPassword.password_hash);
   
   if (!isPasswordValid) {
-    throw createAuthError(ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email or password');
+    throw createAuthError(ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email/username or password');
   }
 
   // Remove password hash from user object
@@ -288,13 +324,6 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
     // Log session error but don't fail the logout
     console.error('Session destruction failed during logout:', sessionError);
   }
-
-  // Optional: Also blacklist access token for immediate revocation
-  // const authHeader = req.headers.authorization;
-  // if (authHeader && authHeader.startsWith('Bearer ')) {
-  //   const accessToken = authHeader.substring(7);
-  //   await blacklistToken(accessToken, 15 * 60); // 15 minutes (access token expiry)
-  // }
 
   sendSuccessResponse(res, null, 'Logout successful');
 });

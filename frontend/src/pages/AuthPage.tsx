@@ -34,7 +34,6 @@ export function AuthPage() {
     error, 
     clearError, 
     isAuthenticated, 
-    // getErrorMessage
   } = useAuth();
   
   const navigate = useNavigate();
@@ -71,10 +70,14 @@ export function AuthPage() {
         // Validate password requirements for registration
         const allReqsMet = passwordRequirements.every(req => req.test(password));
         if (!allReqsMet) {
-          // This will be handled by the backend validation anyway
           console.warn('Password requirements not met');
         }
-        await register({ email, password });
+        
+        await register({ 
+          email, 
+          password, 
+          username: username.trim()
+        });
       }
       // Navigation will happen automatically via useEffect when isAuthenticated changes
     } catch (err) {
