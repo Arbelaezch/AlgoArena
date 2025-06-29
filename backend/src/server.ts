@@ -19,20 +19,20 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 const app: Application = express();
 const port = process.env.PORT || 5000;
 
-// Middleware
-app.use(helmet());
-app.use(cors({
+// SECURITY & SETUP MIDDLEWARE
+app.use(helmet());                                // Enable security headers
+app.use(cors({                                    // Enable CORS for frontend  
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true
 }));
-app.use(morgan('combined'));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(morgan('combined'));                      // Log requests to console
+app.use(express.json({ limit: '10mb' }));         // Parse JSON bodies
+app.use(express.urlencoded({ extended: true }));  // Parse URL-encoded bodies
 
-// Request ID middleware (must be early)
-app.use(requestIdMiddleware);
+// REQUEST ID MIDDLEWARE
+app.use(requestIdMiddleware); // Add unique ID to each request
 
-// Health check route
+// API ROUTES (where business logic happens)
 app.get('/health', (req, res) => {
   sendSuccessResponse(res, {
     status: 'API is running successfully!',
@@ -41,12 +41,11 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API Routes
 app.use('/api/auth', authRoutes);
 
-// Error handling middleware (must be last)
-app.use(notFoundHandler);
-app.use(errorHandler);
+// ERROR HANDLING MIDDLEWARE
+app.use(notFoundHandler);  // Catches requests that didn't match any routes
+app.use(errorHandler);     // Catches all errors from above middleware
 
 // Async function to start the server
 const startServer = async (): Promise<void> => {
