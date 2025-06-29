@@ -1,30 +1,30 @@
 import { pool, query, queryOne, queryMany, queryExists, withTransaction } from '../config/database';
-import { UserEntity, CreateUserRequest } from '../types/user';
+import { UserEntity, CreateUserRequest, UserRole } from '../types/user';
 import { hashPassword } from '../utils/password';
 import { userChanged } from '../events/userEvents';
 
 // Field constants for reusable SELECT clauses
-const USER_FIELDS = 'id, email, username, first_name, last_name, balance, created_at, updated_at';
-const USER_FIELDS_WITH_PASSWORD = 'id, email, username, password_hash, first_name, last_name, balance, created_at, updated_at';
-const USER_RETURNING_FIELDS = 'id, email, username, first_name, last_name, balance, created_at, updated_at';
+const USER_FIELDS = 'id, email, username, first_name, last_name, balance, role, created_at, updated_at';
+const USER_FIELDS_WITH_PASSWORD = 'id, email, username, password_hash, first_name, last_name, balance, role, created_at, updated_at';
+const USER_RETURNING_FIELDS = 'id, email, username, first_name, last_name, balance, role, created_at, updated_at';
 
 export class User {
   /**
    * Create a new user
    */
   static async create(userData: CreateUserRequest): Promise<UserEntity> {
-    const { email, password, username, first_name, last_name } = userData;
+    const { email, password, username, first_name, last_name, role = 'user' } = userData;
     
     // Hash the password
     const passwordHash = await hashPassword(password);
     
     const sql = `
-      INSERT INTO users (email, username, password_hash, first_name, last_name)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO users (email, username, password_hash, first_name, last_name, role)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING ${USER_RETURNING_FIELDS}
     `;
     
-    const values = [email, username, passwordHash, first_name, last_name];
+    const values = [email, username, passwordHash, first_name, last_name, role];
     
     try {
       const user = await queryOne<UserEntity>(sql, values);
@@ -166,9 +166,30 @@ export class User {
   }
 
   /**
+   * Update user role (admin function)
+   */
+  static async updateRole(id: number, newRole: UserRole): Promise<UserEntity | null> {
+    const sql = `
+      UPDATE users 
+      SET role = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING ${USER_RETURNING_FIELDS}
+    `;
+    
+    const user = await queryOne<UserEntity>(sql, [newRole, id]);
+    
+    // Emit user changed event if update was successful
+    if (user) {
+      userChanged(id);
+    }
+    
+    return user;
+  }
+
+  /**
    * Update user profile - Now with dynamic field building!
    */
-  static async updateProfile(id: number, data: Partial<Pick<UserEntity, 'email' | 'username' | 'first_name' | 'last_name'>>): Promise<UserEntity | null> {
+  static async updateProfile(id: number, data: Partial<Pick<UserEntity, 'email' | 'username' | 'first_name' | 'last_name' | 'role'>>): Promise<UserEntity | null> {
     const updateFields = [];
     const values = [];
     let paramIndex = 1;
@@ -258,20 +279,49 @@ export class User {
   }
 
   /**
-   * Get user statistics (for admin/analytics)
+   * Get users by role
+   */
+  static async findByRole(role: UserRole, page = 1, limit = 10): Promise<{ users: UserEntity[]; total: number }> {
+    const offset = (page - 1) * limit;
+    
+    // Get users
+    const usersSql = `
+      SELECT ${USER_FIELDS}
+      FROM users 
+      WHERE role = $1
+      ORDER BY created_at DESC 
+      LIMIT $2 OFFSET $3
+    `;
+    const users = await queryMany<UserEntity>(usersSql, [role, limit, offset]);
+    
+    // Get total count
+    const countSql = 'SELECT COUNT(*) as total FROM users WHERE role = $1';
+    const countResult = await queryOne<{ total: string }>(countSql, [role]);
+    const total = parseInt(countResult?.total || '0');
+    
+    return { users, total };
+  }
+
+  /**
+   * Get user statistics (for admin/analytics) - Enhanced with role breakdown
    */
   static async getUserStats(): Promise<{
     totalUsers: number;
     usersToday: number;
     usersThisWeek: number;
     usersThisMonth: number;
+    roleBreakdown: Record<UserRole, number>;
   }> {
     const sql = `
       SELECT 
         COUNT(*) as total_users,
         COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE) as users_today,
         COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '7 days') as users_this_week,
-        COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '30 days') as users_this_month
+        COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '30 days') as users_this_month,
+        COUNT(*) FILTER (WHERE role = 'user') as role_user,
+        COUNT(*) FILTER (WHERE role = 'admin') as role_admin,
+        COUNT(*) FILTER (WHERE role = 'superadmin') as role_superadmin,
+        COUNT(*) FILTER (WHERE role = 'moderator') as role_moderator
       FROM users
     `;
     
@@ -280,6 +330,10 @@ export class User {
       users_today: string;
       users_this_week: string;
       users_this_month: string;
+      role_user: string;
+      role_admin: string;
+      role_superadmin: string;
+      role_moderator: string;
     }>(sql);
     
     if (!stats) {
@@ -288,6 +342,12 @@ export class User {
         usersToday: 0,
         usersThisWeek: 0,
         usersThisMonth: 0,
+        roleBreakdown: {
+          user: 0,
+          admin: 0,
+          superadmin: 0,
+          moderator: 0,
+        },
       };
     }
     
@@ -296,6 +356,12 @@ export class User {
       usersToday: parseInt(stats.users_today),
       usersThisWeek: parseInt(stats.users_this_week),
       usersThisMonth: parseInt(stats.users_this_month),
+      roleBreakdown: {
+        user: parseInt(stats.role_user),
+        admin: parseInt(stats.role_admin),
+        superadmin: parseInt(stats.role_superadmin),
+        moderator: parseInt(stats.role_moderator),
+      },
     };
   }
 
@@ -323,7 +389,7 @@ export class User {
   }
 
   /**
-   * Search users by name, email, or username
+   * Search users by name, email, username, or role
    */
   static async search(searchTerm: string, page = 1, limit = 10): Promise<UserEntity[]> {
     const offset = (page - 1) * limit;
@@ -337,7 +403,8 @@ export class User {
         LOWER(username) LIKE $1 OR 
         LOWER(first_name) LIKE $1 OR 
         LOWER(last_name) LIKE $1 OR
-        LOWER(CONCAT(first_name, ' ', last_name)) LIKE $1
+        LOWER(CONCAT(first_name, ' ', last_name)) LIKE $1 OR
+        LOWER(role::text) LIKE $1
       ORDER BY created_at DESC 
       LIMIT $2 OFFSET $3
     `;
@@ -394,5 +461,40 @@ export class User {
     // Return user without password
     const { password_hash, ...user } = userWithPassword;
     return user;
+  }
+
+  /**
+   * Update last login time (useful for session tracking)
+   */
+  static async updateLastLogin(id: number): Promise<boolean> {
+    const sql = `
+      UPDATE users 
+      SET updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+    `;
+
+    const result = await query(sql, [id]);
+    const success = (result.rowCount ?? 0) > 0;
+    
+    // Emit user changed event if update was successful
+    if (success) {
+      userChanged(id);
+    }
+    
+    return success;
+  }
+
+  /**
+   * Check if user has specific role or higher privileges
+   */
+  static hasRoleOrHigher(userRole: UserRole, requiredRole: UserRole): boolean {
+    const roleHierarchy: Record<UserRole, number> = {
+      'user': 1,
+      'moderator': 2,
+      'admin': 3,
+      'superadmin': 4,
+    };
+
+    return roleHierarchy[userRole] >= roleHierarchy[requiredRole];
   }
 }
