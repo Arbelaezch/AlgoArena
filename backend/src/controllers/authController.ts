@@ -10,6 +10,12 @@ import {
   removeRefreshToken 
 } from '../utils/redisTokens';
 import { 
+  createUserSession, 
+  destroyUserSession, 
+  addFlashMessage, 
+  updateSessionActivity 
+} from '../services/sessionService';
+import { 
   CreateUserRequest, 
   LoginRequest, 
   AuthResponse, 
@@ -80,6 +86,9 @@ export const register = asyncHandler(async (req: Request<{}, {}, CreateUserReque
     // Store refresh token in Redis
     await storeRefreshToken(user.id, tokens.refreshToken);
 
+    await createUserSession(req, user);
+    addFlashMessage(req, 'success', 'Account created successfully! Welcome aboard.');
+
     const response: AuthResponse = {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -142,6 +151,14 @@ export const login = asyncHandler(async (req: Request<{}, {}, LoginRequest>, res
   // Store refresh token in Redis
   await storeRefreshToken(user.id, tokens.refreshToken);
 
+  try {
+    await createUserSession(req, user);
+    addFlashMessage(req, 'success', 'Welcome back! You have been logged in successfully.');
+  } catch (sessionError) {
+    // Log session error but don't fail the login
+    console.error('Session creation failed during login:', sessionError);
+  }
+
   const response: AuthResponse = {
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
@@ -159,7 +176,23 @@ export const getProfile = asyncHandler(async (req: AuthenticatedRequest, res: Re
     throw createAuthError(ERROR_CODES.UNAUTHORIZED, 'User not authenticated');
   }
 
-  sendSuccessResponse(res, { user: req.user }, 'Profile retrieved successfully');
+  // Update session activity if session exists
+  if (req.session.user) {
+    updateSessionActivity(req);
+  }
+
+  // Enhanced response with session data if available
+  const profileData = {
+    user: req.user,
+    session: req.session.user ? {
+      loginTime: req.session.user.loginTime,
+      lastActivity: req.session.user.lastActivity,
+      preferences: req.session.user.preferences,
+      sessionId: req.sessionID,
+    } : null
+  };
+
+  sendSuccessResponse(res, profileData, 'Profile retrieved successfully');
 });
 
 /**
@@ -210,6 +243,11 @@ export const refreshToken = asyncHandler(async (req: Request<{}, {}, RefreshToke
   // Store new refresh token in Redis
   await storeRefreshToken(decoded.userId, tokens.refreshToken);
 
+  // Update session activity if session exists
+  if (req.session.user && req.session.user.userId === decoded.userId) {
+    updateSessionActivity(req);
+  }
+
   const response: RefreshTokenResponse = {
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken // Always rotate refresh token
@@ -219,7 +257,7 @@ export const refreshToken = asyncHandler(async (req: Request<{}, {}, RefreshToke
 });
 
 /**
- * Logout user (invalidate refresh token using Redis)
+ * Logout user (invalidate refresh token using Redis and destroy session)
  */
 export const logout = asyncHandler(async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
@@ -240,6 +278,17 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
     }
   }
 
+  // Destroy session if it exists
+  try {
+    if (req.session.user) {
+      await destroyUserSession(req);
+      addFlashMessage(req, 'info', 'You have been logged out successfully.');
+    }
+  } catch (sessionError) {
+    // Log session error but don't fail the logout
+    console.error('Session destruction failed during logout:', sessionError);
+  }
+
   // Optional: Also blacklist access token for immediate revocation
   // const authHeader = req.headers.authorization;
   // if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -248,4 +297,55 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
   // }
 
   sendSuccessResponse(res, null, 'Logout successful');
+});
+
+/**
+ * Get current session info (session-specific endpoint)
+ */
+export const getSessionInfo = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.session.user) {
+    return sendSuccessResponse(res, {
+      authenticated: false,
+      sessionId: req.sessionID,
+    }, 'No active session');
+  }
+
+  // Update activity timestamp
+  updateSessionActivity(req);
+
+  const sessionInfo = {
+    authenticated: true,
+    user: {
+      id: req.session.user.userId,
+      email: req.session.user.email,
+      role: req.session.user.role,
+      loginTime: req.session.user.loginTime,
+      lastActivity: req.session.user.lastActivity,
+      preferences: req.session.user.preferences,
+    },
+    session: {
+      id: req.sessionID,
+      maxAge: req.session.cookie.maxAge,
+      timeRemaining: req.session.cookie.maxAge ? Math.max(0, req.session.cookie.maxAge) : null,
+    },
+  };
+
+  sendSuccessResponse(res, sessionInfo, 'Session info retrieved successfully');
+});
+
+/**
+ * Logout from current session only (keeps other device sessions active)
+ */
+export const logoutCurrentSession = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    if (req.session.user) {
+      await destroyUserSession(req);
+      addFlashMessage(req, 'info', 'Current session ended successfully.');
+    }
+
+    sendSuccessResponse(res, null, 'Current session logout successful');
+  } catch (error) {
+    console.error('Current session logout error:', error);
+    throw createAuthError(ERROR_CODES.INTERNAL_SERVER_ERROR, 'Failed to logout from current session');
+  }
 });
