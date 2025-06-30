@@ -98,7 +98,7 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-    command: sh -c "npm run migrate:up && npm run dev"    # The process keeps this service alive
+    command: sh -c "npm run build && npm run migrate:up && npm run dev"    # The process keeps this service alive
 
   # Frontend service
   frontend:
@@ -111,6 +111,8 @@ services:
     volumes:
       - ./frontend:/app      # Your host frontend/ → container /app
       - /app/node_modules    # Keep node_modules in container only
+      - ./backend/src:/app/backend-src  # Share backend source for types
+      - ./backend/dist:/app/backend-dist  # Share backend dist for built types
     environment:
       VITE_BACKEND_BASE_URL: http://localhost:5000/    # Backend URL
       VITE_BACKEND_API_URL: http://localhost:5000/api  # Backend URL

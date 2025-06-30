@@ -29,7 +29,9 @@ export default defineConfig({
       '@services': path.resolve(__dirname, './src/services'),      // API calls, external services
       '@pages': path.resolve(__dirname, './src/pages'),            // Route components (for React Router)
 
-      '@backend-types': path.resolve(__dirname, '../backend/dist/types'),
+      // Backend integration for monorepo (Docker paths)
+      '@backend-types': '/app/backend-dist/types',
+      '@backend-src': '/app/backend-src',
     },
   },
   
@@ -67,10 +69,16 @@ export default defineConfig({
       'react-router',
       'axios'
     ],
+    // Exclude backend types from optimization (they're not npm packages)
+    exclude: ['@backend-types', '@backend-src']
   },
   
   // Development server configuration
   server: {
+    // Docker-specific settings
+    host: '0.0.0.0',  // Allow external connections (required for Docker)
+    port: 3000,
+    
     // Enable CORS for API development if you're running a separate backend
     cors: true,
     
@@ -78,5 +86,11 @@ export default defineConfig({
     hmr: {
       overlay: true,  // Show error overlay in browser during development
     },
+    
+    // Docker volume mount optimization
+    watch: {
+      usePolling: true,    // Required for Docker volume mounts
+      interval: 1000,      // Check for changes every second
+    }
   },
 });

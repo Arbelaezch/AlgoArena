@@ -2,9 +2,11 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
+  "type": "module",
   "main": "src/server.ts",
   "scripts": {
-    "dev": "nodemon src/server.ts",
+    "dev": "nodemon --exec tsx src/server.ts",
+    "dev:debug": "nodemon --exec \"tsx --inspect\" src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "migrate:up": "node-pg-migrate up --migrations-dir ./migrations --migration-file-language sql",
@@ -45,6 +47,7 @@
     "@types/pg": "^8.15.4",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
+    "tsx": "^4.19.2",
     "typescript": "^5.8.3"
   }
 }
