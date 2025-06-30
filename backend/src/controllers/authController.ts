@@ -1,34 +1,15 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { Request, Response } from 'express';
 
-import { User } from '../models/User';
-import { generateTokenPair, verifyRefreshToken } from '../utils/jwt';
-import { comparePassword, validatePassword } from '../utils/password';
-import { 
-  blacklistToken, 
-  isTokenBlacklisted, 
-  storeRefreshToken, 
-  removeRefreshToken 
-} from '../utils/redisTokens';
-import { 
-  createUserSession, 
-  destroyUserSession, 
-  addFlashMessage, 
-  updateSessionActivity 
-} from '../services/sessionService';
-import { 
-  CreateUserRequest, 
-  LoginRequest, 
-  AuthResponse,
-  RefreshTokenRequest,
-  RefreshTokenResponse
-} from '../types';
+import { authService } from '../services/authService';
+import { CreateUserRequest } from '../types';
+import { LoginRequest, RefreshTokenRequest } from '../types/auth';
 import { asyncHandler } from '../middleware/errorHandler';
-import { 
-  createValidationError, 
-  createConflictError, 
+import {
+  createValidationError,
+  createConflictError,
   createNotFoundError,
   createAuthError,
-  handleDatabaseError 
+  handleDatabaseError
 } from '../utils/errorHelpers';
 import { sendSuccessResponse, sendCreatedResponse } from '../utils/responseHelpers';
 import { ERROR_CODES } from '../types/error';
@@ -37,298 +18,53 @@ import { ERROR_CODES } from '../types/error';
  * Register a new user
  */
 export const register = asyncHandler(async (req: Request<{}, {}, CreateUserRequest>, res: Response) => {
-  const { email, password, username, first_name, last_name } = req.body;
-
-  // Validate required fields
-  if (!email || !password || !username) {
-    const errors = [];
-    if (!email) errors.push({ field: 'email', message: 'Email is required' });
-    if (!password) errors.push({ field: 'password', message: 'Password is required' });
-    if (!username) errors.push({ field: 'username', message: 'Username is required' });
-    
-    throw createValidationError('Email, password, and username are required', errors);
-  }
-
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    throw createValidationError('Please provide a valid email address', {
-      field: 'email',
-      value: email,
-      constraint: 'email_format'
-    });
-  }
-
-  // Validate username format
-  const usernameRegex = /^[a-zA-Z0-9_]+$/;
-  if (!usernameRegex.test(username)) {
-    throw createValidationError('Username can only contain letters, numbers, and underscores', {
-      field: 'username',
-      value: username,
-      constraint: 'username_format'
-    });
-  }
-
-  // Validate username length
-  if (username.length < 3 || username.length > 30) {
-    throw createValidationError('Username must be between 3 and 30 characters', {
-      field: 'username',
-      value: username,
-      constraint: 'username_length'
-    });
-  }
-
-  // Validate password strength
-  const passwordValidation = validatePassword(password);
-  if (!passwordValidation.isValid) {
-    throw createValidationError('Password does not meet requirements', {
-      field: 'password',
-      constraint: 'password_strength',
-      details: passwordValidation.errors
-    });
-  }
-
-  try {
-    // Create user - ensure username is properly passed and trimmed
-    const user = await User.create({
-      email: email.toLowerCase().trim(),
-      password,
-      username: username.trim(),
-      first_name: first_name?.trim(),
-      last_name: last_name?.trim()
-    });
-
-    // Generate JWT tokens
-    const tokens = generateTokenPair({
-      userId: user.id,
-      email: user.email
-    });
-
-    // Store refresh token in Redis
-    await storeRefreshToken(user.id, tokens.refreshToken);
-
-    await createUserSession(req, user);
-    addFlashMessage(req, 'success', 'Account created successfully! Welcome aboard.');
-
-    const response: AuthResponse = {
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      user
-    };
-
-    sendCreatedResponse(res, response, 'User registered successfully');
-
-  } catch (error: unknown) {
-    // Handle specific user creation errors
-    if (error && typeof error === 'object' && 'message' in error) {
-      if (error.message === 'User with this email already exists') {
-        throw createConflictError('User with this email already exists', {
-          field: 'email',
-          value: email
-        });
-      }
-      if (error.message === 'Username is already taken') {
-        throw createConflictError('Username is already taken', {
-          field: 'username',
-          value: username
-        });
-      }
-      if (error.message === 'User with this email or username already exists') {
-        throw createConflictError('User with this email or username already exists', [
-          { field: 'email', message: 'Email may already be in use' },
-          { field: 'username', message: 'Username may already be taken' }
-        ]);
-      }
-    }
-
-    // Handle database-specific errors
-    throw handleDatabaseError(error);
-  }
+  const result = await authService.register(req.body, req);
+  sendCreatedResponse(res, result, 'User registered successfully');
 });
 
 /**
  * Login user
  */
 export const login = asyncHandler(async (req: Request<{}, {}, LoginRequest>, res: Response) => {
-  const { email, password } = req.body;
+  const result = await authService.login(req.body, req);
+  sendSuccessResponse(res, result, 'Login successful');
+});
 
-  // Validate required fields
-  if (!email || !password) {
-    throw createValidationError('Email and password are required', [
-      { field: 'email', message: 'Email is required' },
-      { field: 'password', message: 'Password is required' }
-    ]);
-  }
-
-  // Find user with password hash (support both email and username for login)
-  const userWithPassword = await User.findByEmailOrUsernameWithPassword(email.toLowerCase().trim());
-  
-  if (!userWithPassword) {
-    throw createAuthError(ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email/username or password');
-  }
-
-  // Verify password
-  const isPasswordValid = await comparePassword(password, userWithPassword.password_hash);
-  
-  if (!isPasswordValid) {
-    throw createAuthError(ERROR_CODES.INVALID_CREDENTIALS, 'Invalid email/username or password');
-  }
-
-  // Remove password hash from user object
-  const { password_hash, ...user } = userWithPassword;
-
-  // Generate JWT tokens
-  const tokens = generateTokenPair({
-    userId: user.id,
-    email: user.email
-  });
-
-  // Store refresh token in Redis
-  await storeRefreshToken(user.id, tokens.refreshToken);
-
-  try {
-    await createUserSession(req, user);
-    addFlashMessage(req, 'success', 'Welcome back! You have been logged in successfully.');
-  } catch (sessionError) {
-    // Log session error but don't fail the login
-    console.error('Session creation failed during login:', sessionError);
-  }
-
-  const response: AuthResponse = {
-    accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
-    user
-  };
-
-  sendSuccessResponse(res, response, 'Login successful');
+/**
+ * Refresh authentication tokens/session
+ */
+export const refreshToken = asyncHandler(async (req: Request<{}, {}, RefreshTokenRequest>, res: Response) => {
+  const result = await authService.refresh(req.body, req);
+  sendSuccessResponse(res, result, 'Authentication refreshed successfully');
 });
 
 /**
  * Get current user profile
  */
 export const getProfile = asyncHandler(async (req: Request, res: Response) => {
-  if (!req.user) {
-    throw createAuthError(ERROR_CODES.UNAUTHORIZED, 'User not authenticated');
-  }
-
-  // Update session activity if session exists
-  if (req.session.user) {
-    updateSessionActivity(req);
-  }
-
-  // Enhanced response with session data if available
-  const profileData = {
-    user: req.user,
-    session: req.session.user ? {
-      loginTime: req.session.user.loginTime,
-      lastActivity: req.session.user.lastActivity,
-      preferences: req.session.user.preferences,
-      sessionId: req.sessionID,
-    } : null
-  };
-
+  const profileData = await authService.getProfile(req);
   sendSuccessResponse(res, profileData, 'Profile retrieved successfully');
 });
 
 /**
- * Refresh access token using refresh token (with rotation and Redis tracking)
- */
-export const refreshToken = asyncHandler(async (req: Request<{}, {}, RefreshTokenRequest>, res: Response) => {
-  const { refreshToken: oldRefreshToken } = req.body;
-
-  if (!oldRefreshToken) {
-    throw createValidationError('Refresh token is required', {
-      field: 'refreshToken',
-      message: 'Refresh token is required'
-    });
-  }
-
-  // Check if token is blacklisted in Redis
-  const isBlacklisted = await isTokenBlacklisted(oldRefreshToken);
-  if (isBlacklisted) {
-    throw createAuthError(ERROR_CODES.TOKEN_EXPIRED, 'Refresh token has been revoked');
-  }
-
-  // Verify refresh token
-  let decoded;
-  try {
-    decoded = verifyRefreshToken(oldRefreshToken);
-  } catch (error) {
-    throw createAuthError(ERROR_CODES.TOKEN_EXPIRED, 'Invalid or expired refresh token');
-  }
-
-  // Verify user still exists and is active
-  const user = await User.findById(decoded.userId);
-  if (!user) {
-    throw createNotFoundError('User', decoded.userId);
-  }
-
-  // IMPORTANT: Immediately blacklist the old refresh token
-  await blacklistToken(oldRefreshToken, 7 * 24 * 60 * 60); // 7 days
-  
-  // Remove old token from user's active tokens
-  await removeRefreshToken(decoded.userId, oldRefreshToken);
-
-  // Generate new token pair (both access and refresh tokens)
-  const tokens = generateTokenPair({
-    userId: decoded.userId,
-    email: decoded.email
-  });
-
-  // Store new refresh token in Redis
-  await storeRefreshToken(decoded.userId, tokens.refreshToken);
-
-  // Update session activity if session exists
-  if (req.session.user && req.session.user.userId === decoded.userId) {
-    updateSessionActivity(req);
-  }
-
-  const response: RefreshTokenResponse = {
-    accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken // Always rotate refresh token
-  };
-
-  sendSuccessResponse(res, response, 'Token refreshed successfully');
-});
-
-/**
- * Logout user (invalidate refresh token using Redis and destroy session)
+ * Logout user
  */
 export const logout = asyncHandler(async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
-
-  // If refresh token is provided, blacklist it and remove from active tokens
-  if (refreshToken) {
-    try {
-      const decoded = verifyRefreshToken(refreshToken);
-      
-      // Blacklist the token
-      await blacklistToken(refreshToken, 7 * 24 * 60 * 60);
-      
-      // Remove from user's active tokens
-      await removeRefreshToken(decoded.userId, refreshToken);
-    } catch (error) {
-      // Token might be invalid, but that's okay for logout
-      console.log('Token verification failed during logout:', error);
-    }
-  }
-
-  // Destroy session if it exists
-  try {
-    if (req.session.user) {
-      await destroyUserSession(req);
-      addFlashMessage(req, 'info', 'You have been logged out successfully.');
-    }
-  } catch (sessionError) {
-    // Log session error but don't fail the logout
-    console.error('Session destruction failed during logout:', sessionError);
-  }
-
+  await authService.logout(req, refreshToken);
   sendSuccessResponse(res, null, 'Logout successful');
 });
 
 /**
- * Get current session info (session-specific endpoint)
+ * Logout user from all devices/sessions
+ */
+export const logoutAll = asyncHandler(async (req: Request, res: Response) => {
+  await authService.logoutAll(req);
+  sendSuccessResponse(res, null, 'Logged out from all devices successfully');
+});
+
+/**
+ * Get detailed session information
  */
 export const getSessionInfo = asyncHandler(async (req: Request, res: Response) => {
   if (!req.session.user) {
@@ -337,9 +73,6 @@ export const getSessionInfo = asyncHandler(async (req: Request, res: Response) =
       sessionId: req.sessionID,
     }, 'No active session');
   }
-
-  // Update activity timestamp
-  updateSessionActivity(req);
 
   const sessionInfo = {
     authenticated: true,
@@ -362,18 +95,121 @@ export const getSessionInfo = asyncHandler(async (req: Request, res: Response) =
 });
 
 /**
- * Logout from current session only (keeps other device sessions active)
+ * Update session preferences
  */
-export const logoutCurrentSession = asyncHandler(async (req: Request, res: Response) => {
-  try {
-    if (req.session.user) {
-      await destroyUserSession(req);
-      addFlashMessage(req, 'info', 'Current session ended successfully.');
-    }
-
-    sendSuccessResponse(res, null, 'Current session logout successful');
-  } catch (error) {
-    console.error('Current session logout error:', error);
-    throw createAuthError(ERROR_CODES.INTERNAL_SERVER_ERROR, 'Failed to logout from current session');
+export const updatePreferences = asyncHandler(async (req: Request, res: Response) => {
+  const { theme, language, timezone } = req.body;
+  
+  if (!req.session.user) {
+    throw createAuthError(ERROR_CODES.UNAUTHORIZED, 'No active session');
   }
+
+  const updates: any = {};
+  if (req.session.user.preferences) {
+    updates.preferences = { ...req.session.user.preferences };
+  } else {
+    updates.preferences = {};
+  }
+
+  if (theme && ['light', 'dark'].includes(theme)) {
+    updates.preferences.theme = theme;
+  }
+  if (language) {
+    updates.preferences.language = language;
+  }
+  if (timezone) {
+    updates.preferences.timezone = timezone;
+  }
+
+  // Update session using the service
+  const { updateUserSession } = await import('../services/sessionService');
+  await updateUserSession(req, updates);
+
+  sendSuccessResponse(res, {
+    preferences: updates.preferences,
+  }, 'Preferences updated successfully');
+});
+
+/**
+ * Get user's active sessions
+ */
+export const getActiveSessions = asyncHandler(async (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const requestedUserId = userId ? parseInt(userId) : req.user?.id;
+  
+  if (!requestedUserId) {
+    throw createAuthError(ERROR_CODES.UNAUTHORIZED, 'User ID required');
+  }
+
+  const currentUser = req.user!;
+  const isAdmin = ['admin', 'superadmin'].includes(currentUser.role);
+
+  // Check if user can view these sessions
+  if (requestedUserId !== currentUser.id && !isAdmin) {
+    throw createAuthError(ERROR_CODES.FORBIDDEN, 'You can only view your own sessions');
+  }
+
+  try {
+    const { getUserActiveSessions } = await import('../services/sessionService');
+    const sessionIds = await getUserActiveSessions(requestedUserId);
+    
+    sendSuccessResponse(res, {
+      userId: requestedUserId,
+      activeSessions: sessionIds.length,
+      sessionIds: isAdmin ? sessionIds : [req.sessionID], // Only show current session to non-admins
+    }, 'Active sessions retrieved successfully');
+  } catch (error) {
+    console.error('Get sessions error:', error);
+    throw createAuthError(ERROR_CODES.INTERNAL_SERVER_ERROR, 'Failed to retrieve active sessions');
+  }
+});
+
+/**
+ * Get flash messages
+ */
+export const getFlashMessages = asyncHandler(async (req: Request, res: Response) => {
+  const { getFlashMessages } = await import('../services/sessionService');
+  const messages = getFlashMessages(req);
+  
+  sendSuccessResponse(res, messages, 'Flash messages retrieved successfully');
+});
+
+/**
+ * Add flash message
+ */
+export const addFlashMessage = asyncHandler(async (req: Request, res: Response) => {
+  const { type, message } = req.body;
+  
+  if (!type || !message) {
+    throw createValidationError('Type and message are required', [
+      { field: 'type', message: 'Message type is required' },
+      { field: 'message', message: 'Message content is required' }
+    ]);
+  }
+
+  if (!['success', 'error', 'info', 'warning'].includes(type)) {
+    throw createValidationError('Invalid message type', {
+      field: 'type',
+      value: type,
+      constraint: 'must be one of: success, error, info, warning'
+    });
+  }
+
+  const { addFlashMessage } = await import('../services/sessionService');
+  addFlashMessage(req, type, message);
+  
+  sendSuccessResponse(res, null, 'Flash message added successfully');
+});
+
+/**
+ * Health check for authentication service
+ */
+export const healthCheck = asyncHandler(async (req: Request, res: Response) => {
+  const health = await authService.healthCheck();
+  
+  res.status(health.status === 'healthy' ? 200 : 503).json({
+    success: health.status === 'healthy',
+    data: health,
+    message: health.status === 'healthy' ? 'Authentication service is healthy' : 'Authentication service is unhealthy'
+  });
 });
