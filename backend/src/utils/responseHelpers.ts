@@ -1,33 +1,20 @@
 import type { Response } from 'express';
 
-interface PaginationMeta {
-  page: number;
-  limit: number;
-  total: number;
-  pages: number;
-}
-
-interface SuccessResponse<T = unknown> {
-  success: true;
-  data: T;
-  message?: string;
-  meta?: {
-    pagination?: PaginationMeta;
-    [key: string]: unknown;
-  };
-}
+import type { ApiSuccessResponse, ApiErrorResponse, PaginatedResponse } from '../types/api.js';
 
 export const sendSuccessResponse = <T = unknown>(
   res: Response,
   data: T,
-  message?: string,
+  message: string = 'Success',
   statusCode: number = 200,
-  meta?: SuccessResponse<T>['meta']
+  meta?: ApiSuccessResponse<T>['meta']
 ): void => {
-  const response: SuccessResponse<T> = {
+  const response: ApiSuccessResponse<T> = {
     success: true,
     data,
-    ...(message && { message }),
+    timestamp: new Date().toISOString(),
+    requestId: (res.req as any).id,
+    message,
     ...(meta && { meta })
   };
 
@@ -48,13 +35,33 @@ export const sendDeletedResponse = (res: Response, message?: string): void => {
 
 export const sendPaginatedResponse = <T = unknown>(
   res: Response,
-  data: T[],
-  pagination: Omit<PaginationMeta, 'pages'>,
+  paginatedData: PaginatedResponse<T>,
   message?: string
 ): void => {
-  const pages = Math.ceil(pagination.total / pagination.limit);
-  
-  sendSuccessResponse(res, data, message, 200, {
-    pagination: { ...pagination, pages }
+  sendSuccessResponse(res, paginatedData.data, message, 200, {
+    pagination: paginatedData.pagination
   });
+};
+
+export const sendError = (
+  res: Response,
+  code: string,
+  message: string,
+  statusCode: number = 500,
+  details?: any,
+  path?: string
+): void => {
+  const response: ApiErrorResponse = {
+    success: false,
+    error: {
+      code: code as any,
+      message,
+      timestamp: new Date().toISOString(),
+      path: path || res.req.path,
+      requestId: (res.req as any).id,
+      ...(details && { details })
+    }
+  };
+
+  res.status(statusCode).json(response);
 };

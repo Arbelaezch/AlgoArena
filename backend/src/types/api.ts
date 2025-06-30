@@ -1,3 +1,5 @@
+import type { ErrorCode, ErrorDetails } from './error.js';
+
 // Pagination interfaces
 export interface PaginationParams {
   page: number;
@@ -24,3 +26,31 @@ export interface BaseQueryFilters {
   createdAfter?: string;
   createdBefore?: string;
 }
+
+// Standard API Response Types
+export interface ApiSuccessResponse<T = any> {
+  success: true;
+  data: T;
+  message?: string;
+  timestamp?: string;
+  requestId?: string;
+  meta?: {
+    pagination?: PaginatedResponse<any>['pagination'];
+    [key: string]: unknown;
+  };
+}
+
+export interface ApiErrorResponse {
+  success: false;
+  error: {
+    code: ErrorCode;
+    message: string;
+    timestamp: string;
+    path: string;
+    requestId?: string;
+    details?: ErrorDetails | ErrorDetails[];
+  };
+}
+
+// Union type for all API responses
+export type ApiResponse<T = any> = ApiSuccessResponse<T> | ApiErrorResponse;

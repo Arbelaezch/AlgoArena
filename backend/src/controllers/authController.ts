@@ -1,18 +1,18 @@
 import type { Request, Response } from 'express';
 
-import { authService } from '../services/authService';
-import { CreateUserRequest } from '../types';
-import { LoginRequest, RefreshTokenRequest } from '../types/auth';
-import { asyncHandler } from '../middleware/errorHandler';
+import { authService } from '../services/authService.js';
+import { CreateUserRequest } from '../types/index.js';
+import { LoginRequest, RefreshTokenRequest } from '../types/auth.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
 import {
   createValidationError,
   createConflictError,
   createNotFoundError,
   createAuthError,
   handleDatabaseError
-} from '../utils/errorHelpers';
-import { sendSuccessResponse, sendCreatedResponse } from '../utils/responseHelpers';
-import { ERROR_CODES } from '../types/error';
+} from '../utils/errorHelpers.js';
+import { sendSuccessResponse, sendCreatedResponse } from '../utils/responseHelpers.js';
+import { ERROR_CODES } from '../types/error.js';
 
 /**
  * Register a new user
@@ -207,9 +207,10 @@ export const addFlashMessage = asyncHandler(async (req: Request, res: Response) 
 export const healthCheck = asyncHandler(async (req: Request, res: Response) => {
   const health = await authService.healthCheck();
   
-  res.status(health.status === 'healthy' ? 200 : 503).json({
-    success: health.status === 'healthy',
-    data: health,
-    message: health.status === 'healthy' ? 'Authentication service is healthy' : 'Authentication service is unhealthy'
-  });
+  if (health.status === 'healthy') {
+    sendSuccessResponse(res, health, 'Authentication service is healthy');
+  } else {
+    // Throw error to let error handler format it properly
+    throw new Error(`Authentication service is unhealthy: ${health.error}`);
+  }
 });

@@ -1,11 +1,11 @@
-import { AppError } from '../errors/AppError';
-import { ValidationError } from '../errors/ValidationError';
-import { NotFoundError } from '../errors/NotFoundError';
-import { ConflictError } from '../errors/ConflictError';
-import { BusinessError } from '../errors/BusinessError';
-import { AuthError } from '../errors/AuthError';
-import { ExternalServiceError } from '../errors/ExternalServiceError';
-import { ERROR_CODES, type ErrorCode, type ErrorDetails } from '../types/error';
+import { AppError } from '../errors/AppError.js';
+import { ValidationError } from '../errors/ValidationError.js';
+import { NotFoundError } from '../errors/NotFoundError.js';
+import { ConflictError } from '../errors/ConflictError.js';
+import { BusinessError } from '../errors/BusinessError.js';
+import { AuthError } from '../errors/AuthError.js';
+import { ExternalServiceError } from '../errors/ExternalServiceError.js';
+import { ERROR_CODES, type ErrorCode, type ErrorDetails } from '../types/error.js';
 
 // Factory functions for common errors
 export const createValidationError = (message?: string, details?: ErrorDetails | ErrorDetails[]): ValidationError => {

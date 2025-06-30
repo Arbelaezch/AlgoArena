@@ -1,11 +1,13 @@
 import { AxiosError } from "axios";
+
 import {
   ERROR_CODES,
   type ErrorCode,
   type AppError,
-  type ApiErrorResponse,
   type ErrorDetails,
-} from "@/types/error";
+  // type ApiSuccessResponse,
+  type ApiErrorResponse,
+} from "@backend-types/index.js";
 
 // Error creation utilities
 export const createAppError = (
@@ -69,8 +71,8 @@ export const createNotFoundError = (resource: string = "Resource"): AppError =>
 export const parseApiError = (error: unknown): AppError => {
   // Handle Axios errors
   if (error instanceof AxiosError) {
-    // Check if it's a structured API error response
-    if (error.response?.data?.error) {
+    // Check if it's the standard API error response (success: false)
+    if (error.response?.data?.success === false) {
       const apiError: ApiErrorResponse = error.response.data;
 
       const appError: AppError = {

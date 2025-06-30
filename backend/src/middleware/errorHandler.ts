@@ -1,7 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
-import { AppError } from '../errors/AppError';
-import { ValidationError } from '../errors/ValidationError';
-import { ERROR_CODES, type ErrorResponse } from '../types/error';
+
+import { AppError } from '../errors/AppError.js';
+import { ValidationError } from '../errors/ValidationError.js';
+import { ERROR_CODES } from '../types/error.js';
+import { sendError } from '../utils/responseHelpers.js';
 
 // Generate unique request ID
 const generateRequestId = (): string => {
@@ -84,23 +86,17 @@ export const errorHandler = (
     );
   }
 
-  // Build error response
-  const errorResponse: ErrorResponse = {
-    error: {
-      code: appError.code,
-      message: appError.message,
-      timestamp: new Date().toISOString(),
-      path: req.path,
-      requestId: req.id
-    }
-  };
-
-  // Add details if available (exclude in production for security)
-  if (appError.details && (process.env.NODE_ENV !== 'production' || appError.isOperational)) {
-    errorResponse.error.details = appError.details;
-  }
-
-  res.status(appError.statusCode).json(errorResponse);
+  // Send standardized error response using your existing helper
+  const includeDetails = appError.details && (process.env.NODE_ENV !== 'production' || appError.isOperational);
+  
+  sendError(
+    res,
+    appError.code,
+    appError.message,
+    appError.statusCode,
+    includeDetails ? appError.details : undefined,
+    req.path
+  );
 };
 
 // 404 handler
