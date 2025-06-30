@@ -15,6 +15,7 @@ import { optionalAuth } from './middleware/sessionMiddleware';
 import { sendSuccessResponse } from './utils/responseHelpers';
 import authRoutes from './routes/auth';
 import routes from './routes';
+import './types/request';
 import './types/session';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
