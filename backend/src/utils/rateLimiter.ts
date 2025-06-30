@@ -1,9 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
 
-import { getRedisClient } from '../config/redis';
-import { createExternalServiceError } from './errorHelpers';
-import { ERROR_CODES } from '../types/error';
-import { AppError } from '../errors/AppError';
+import { getRedisClient } from '../config/redis.js';
+import { createExternalServiceError } from './errorHelpers.js';
+import { ERROR_CODES } from '../types/error.js';
+import { AppError } from '../errors/AppError.js';
 
 export interface RateLimitConfig {
   windowMs: number;                         // Time window in milliseconds

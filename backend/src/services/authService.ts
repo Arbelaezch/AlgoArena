@@ -1,31 +1,32 @@
 import type { Request } from 'express';
-import { UserEntity, CreateUserRequest } from '../types/user';
-import { AuthResponse, LoginRequest, RefreshTokenRequest } from '../types/auth';
-import { User } from '../models/User';
-import { generateTokenPair, verifyRefreshToken } from '../utils/jwt';
+
+import { UserEntity, CreateUserRequest } from '../types/user.js';
+import { AuthResponse, LoginRequest, RefreshTokenRequest } from '../types/auth.js';
+import { User } from '../models/User.js';
+import { generateTokenPair, verifyRefreshToken } from '../utils/jwt.js';
 import {
   storeRefreshToken,
   removeRefreshToken,
   blacklistToken,
   isTokenBlacklisted,
   revokeAllUserTokens
-} from '../utils/redisTokens';
+} from '../utils/redisTokens.js';
 import {
   createUserSession,
   destroyUserSession,
   addFlashMessage,
   updateSessionActivity,
   revokeAllUserSessions
-} from './sessionService';
-import { comparePassword } from '../utils/password';
+} from './sessionService.js';
+import { comparePassword } from '../utils/password.js';
 import {
   createAuthError,
   createValidationError,
   createNotFoundError,
   createConflictError,
   handleDatabaseError
-} from '../utils/errorHelpers';
-import { ERROR_CODES } from '../types/error';
+} from '../utils/errorHelpers.js';
+import { ERROR_CODES } from '../types/error.js';
 
 /**
  * Authentication Service
@@ -119,7 +120,6 @@ export class AuthService {
    */
   async login(credentials: LoginRequest, req: Request): Promise<AuthResponse> {
     const { email, password } = credentials;
-    console.log("LOGIN");
 
     // Validate required fields
     if (!email || !password) {

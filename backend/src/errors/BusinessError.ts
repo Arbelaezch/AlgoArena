@@ -1,5 +1,5 @@
-import { AppError } from './AppError';
-import { ERROR_CODES, type ErrorCode, type ErrorDetails } from '../types/error';
+import { AppError } from './AppError.js';
+import { ERROR_CODES, type ErrorCode, type ErrorDetails } from '../types/error.js';
 
 export class BusinessError extends AppError {
   constructor(

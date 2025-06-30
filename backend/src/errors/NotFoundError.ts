@@ -1,5 +1,5 @@
-import { AppError } from './AppError';
-import { ERROR_CODES, type ErrorDetails } from '../types/error';
+import { AppError } from './AppError.js';
+import { ERROR_CODES, type ErrorDetails } from '../types/error.js';
 
 export class NotFoundError extends AppError {
   constructor(resource: string = 'Resource', id?: string | number) {

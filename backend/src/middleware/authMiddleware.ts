@@ -1,7 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
-import { authService } from '../services/authService';
-import { createAuthError } from '../utils/errorHelpers';
-import { ERROR_CODES } from '../types/error';
+
+import { authService } from '../services/authService.js';
+import { createAuthError } from '../utils/errorHelpers.js';
+import { ERROR_CODES } from '../types/error.js';
 
 /**
  * Require authentication (JWT or Session)

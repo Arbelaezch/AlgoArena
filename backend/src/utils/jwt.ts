@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 
-import { jwtConfig } from '../config/jwt';
-import { JWTPayload } from '../types/auth';
+import { jwtConfig } from '../config/jwt.js';
+import { JWTPayload } from '../types/auth.js';
 
 /**
  * Generate short-lived access token (15-30 minutes)

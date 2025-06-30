@@ -1,7 +1,7 @@
-import { pool, query, queryOne, queryMany, queryExists, withTransaction } from '../config/database';
-import { UserEntity, CreateUserRequest, UserRole } from '../types/user';
-import { hashPassword } from '../utils/password';
-import { userChanged } from '../events/userEvents';
+import { pool, query, queryOne, queryMany, queryExists, withTransaction } from '../config/database.js';
+import { UserEntity, CreateUserRequest, UserRole } from '../types/user.js';
+import { hashPassword } from '../utils/password.js';
+import { userChanged } from '../events/userEvents.js';
 
 // Field constants for reusable SELECT clauses
 const USER_FIELDS = 'id, email, username, first_name, last_name, balance, role, created_at, updated_at';

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 
-import { invalidateUserCache } from '../utils/userCache';
+import { invalidateUserCache } from '../utils/userCache.js';
 
 // Single event emitter for user changes
 export const userEvents = new EventEmitter();

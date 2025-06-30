@@ -1,4 +1,4 @@
-import type { ErrorCode, ErrorDetails } from '../types/error';
+import type { ErrorCode, ErrorDetails } from '../types/error.js';
 
 export class AppError extends Error {
   public readonly statusCode: number;

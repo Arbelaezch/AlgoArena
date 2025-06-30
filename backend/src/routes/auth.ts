@@ -13,20 +13,20 @@ import {
   getFlashMessages,
   addFlashMessage,
   healthCheck
-} from '../controllers/authController';
+} from '../controllers/authController.js';
 import { 
   requireAuth, 
   optionalAuth, 
   requireGuest, 
   requireRole,
   authRateLimit
-} from '../middleware/authMiddleware';
+} from '../middleware/authMiddleware.js';
 import {
   loginRateLimit,
   registerRateLimit,
   refreshTokenRateLimit,
   generalRateLimit
-} from '../utils/rateLimiter';
+} from '../utils/rateLimiter.js';
 
 const router = Router();
 

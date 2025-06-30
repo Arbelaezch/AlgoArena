@@ -1,7 +1,7 @@
-import { getRedisClient } from '../config/redis';
-import { User } from '../models/User';
-import { UserEntity } from '../types';
-import { createExternalServiceError, handleDatabaseError } from './errorHelpers';
+import { getRedisClient } from '../config/redis.js';
+import { User } from '../models/User.js';
+import { UserEntity } from '../types/index.js';
+import { createExternalServiceError, handleDatabaseError } from './errorHelpers.js';
 
 // Cache configuration
 const USER_CACHE_PREFIX = 'user:';

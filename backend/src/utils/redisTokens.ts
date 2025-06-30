@@ -1,5 +1,5 @@
-import { getRedisClient } from '../config/redis';
-import { createExternalServiceError } from './errorHelpers';
+import { getRedisClient } from '../config/redis.js';
+import { createExternalServiceError } from './errorHelpers.js';
 
 // Prefixes for different token types
 const BLACKLIST_PREFIX = 'blacklist:';

@@ -1,9 +1,10 @@
 import { Request } from 'express';
-import { UserSessionData } from '../types/session';
-import { UserEntity } from '../types';
-import { getRedisClient } from '../config/redis';
-import { sessionConfig } from '../config/session';
-import { createExternalServiceError } from '../utils/errorHelpers';
+
+import { UserSessionData } from '../types/session.js';
+import { UserEntity } from '../types/index.js';
+import { getRedisClient } from '../config/redis.js';
+import { sessionConfig } from '../config/session.js';
+import { createExternalServiceError } from '../utils/errorHelpers.js';
 
 /**
  * Create a new user session
