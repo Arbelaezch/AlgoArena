@@ -5,18 +5,23 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-import { connectDB } from './config/database';
-import { createRedisClient } from './config/redis';
-import { createSessionMiddleware } from './config/session';
-import { initializeUserCacheHandlers } from './events/userEvents';
-import { requestIdMiddleware, errorHandler, notFoundHandler } from './middleware/errorHandler';
-import { optionalAuth } from './middleware/authMiddleware';
-import { sendSuccessResponse } from './utils/responseHelpers';
-import authRoutes from './routes/auth';
-import routes from './routes';
-import './types/request';
-import './types/session';
+import { connectDB } from './config/database.js';
+import { createRedisClient } from './config/redis.js';
+import { createSessionMiddleware } from './config/session.js';
+import { initializeUserCacheHandlers } from './events/userEvents.js';
+import { requestIdMiddleware, errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { optionalAuth } from './middleware/authMiddleware.js';
+import { sendSuccessResponse } from './utils/responseHelpers.js';
+import { authService } from './services/authService.js';
+import authRoutes from './routes/auth.js';
+import routes from './routes/index.js';
+import './types/request.js';
+import './types/session.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
@@ -55,11 +60,24 @@ const startServer = async (): Promise<void> => {
     
     // Initialize cache event handlers
     initializeUserCacheHandlers();
+
+    // ROOT ROUTE - Welcome message for API
+    app.get('/', (req, res): void => {
+      sendSuccessResponse(res, {
+        message: 'Welcome to AlgoArena API',
+        version: '1.0.0',
+        endpoints: {
+          health: '/health',
+          api: '/api',
+          auth: '/api/auth',
+          docs: '/health' // Until you add proper API docs
+        },
+        timestamp: new Date().toISOString()
+      });
+    });
     
     // API ROUTES (where business logic happens)
     app.get('/health', async (req, res): Promise<void> => {
-      // Import auth service for health check
-      const { authService } = await import('./services/authService');
       const authHealth = await authService.healthCheck();
       
       sendSuccessResponse(res, {
@@ -84,9 +102,6 @@ const startServer = async (): Promise<void> => {
     
     // Example protected route using simplified middleware
     app.get('/api/protected', async (req, res): Promise<void> => {
-      // Import auth service and middleware
-      const { authService } = await import('./services/authService');
-      
       const user = await authService.verify(req);
       if (!user) {
         res.status(401).json({ error: 'Authentication required' });
@@ -104,8 +119,6 @@ const startServer = async (): Promise<void> => {
 
     // Example admin route
     app.get('/api/admin', async (req, res): Promise<void> => {
-      const { authService } = await import('./services/authService');
-      
       const user = await authService.verify(req);
       if (!user) {
         res.status(401).json({ error: 'Authentication required' });
