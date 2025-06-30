@@ -1,19 +1,13 @@
-import { Request } from 'express';
-
 import { UserEntity } from './user';
 
-// Request object with authenticated user
-export interface AuthenticatedRequest extends Request {
-  user?: UserEntity;
+// Global declaration to extend Express Request
+declare global {
+  namespace Express {
+    interface Request {
+      user?: UserEntity;
+      requestId?: string;
+    }
+  }
 }
 
-// export interface PaginatedRequest extends Request {
-//   query: {
-//     page?: string;
-//     limit?: string;
-//   }
-// }
-// 
-// export interface FileUploadRequest extends Request {
-//   file?: Express.Multer.File;
-// }
+export {};

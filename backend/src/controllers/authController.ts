@@ -18,8 +18,7 @@ import {
 import { 
   CreateUserRequest, 
   LoginRequest, 
-  AuthResponse, 
-  AuthenticatedRequest,
+  AuthResponse,
   RefreshTokenRequest,
   RefreshTokenResponse
 } from '../types';
@@ -207,7 +206,7 @@ export const login = asyncHandler(async (req: Request<{}, {}, LoginRequest>, res
 /**
  * Get current user profile
  */
-export const getProfile = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+export const getProfile = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) {
     throw createAuthError(ERROR_CODES.UNAUTHORIZED, 'User not authenticated');
   }

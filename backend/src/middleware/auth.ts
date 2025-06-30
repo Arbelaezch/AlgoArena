@@ -1,7 +1,6 @@
-import type { Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 
 import { verifyAccessToken, extractTokenFromHeader } from '../utils/jwt';
-import { AuthenticatedRequest } from '../types/request';
 import { isTokenBlacklisted } from '../utils/redisTokens';
 import { getUserWithCache } from '../utils/userCache';
 import { createAuthError } from '../utils/errorHelpers';
@@ -11,7 +10,7 @@ import { ERROR_CODES } from '../types/error';
  * Middleware to verify JWT token and attach user to request
  */
 export const authenticateToken = async (
-  req: AuthenticatedRequest, 
+  req: Request, 
   res: Response, 
   next: NextFunction
 ): Promise<void> => {
@@ -52,7 +51,7 @@ export const authenticateToken = async (
  * Optional authentication - doesn't fail if no token provided
  */
 export const optionalAuth = async (
-  req: AuthenticatedRequest, 
+  req: Request, 
   res: Response, 
   next: NextFunction
 ): Promise<void> => {
