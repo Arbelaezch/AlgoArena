@@ -11,7 +11,7 @@ import { createRedisClient } from './config/redis';
 import { createSessionMiddleware } from './config/session';
 import { initializeUserCacheHandlers } from './events/userEvents';
 import { requestIdMiddleware, errorHandler, notFoundHandler } from './middleware/errorHandler';
-import { optionalAuth } from './middleware/sessionMiddleware';
+import { optionalAuth } from './middleware/authMiddleware';
 import { sendSuccessResponse } from './utils/responseHelpers';
 import authRoutes from './routes/auth';
 import routes from './routes';
@@ -57,29 +57,70 @@ const startServer = async (): Promise<void> => {
     initializeUserCacheHandlers();
     
     // API ROUTES (where business logic happens)
-    app.get('/health', (req, res): void => {
+    app.get('/health', async (req, res): Promise<void> => {
+      // Import auth service for health check
+      const { authService } = await import('./services/authService');
+      const authHealth = await authService.healthCheck();
+      
       sendSuccessResponse(res, {
         status: 'API is running successfully!',
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development',
-        session: !!req.session.user,
-        sessionId: req.sessionID
+        auth: {
+          authenticated: !!req.user,
+          sessionId: req.sessionID,
+          hasJWT: !!req.user,
+          hasSession: !!req.session.user,
+          authHealth
+        }
       });
     });
 
+    // Authentication routes
     app.use('/api/auth', authRoutes);
     
-    // Example protected route
-    app.get('/api/protected', (req, res): void => {
-      if (!req.session.user) {
+    // Other API routes
+    app.use('/api', routes);
+    
+    // Example protected route using simplified middleware
+    app.get('/api/protected', async (req, res): Promise<void> => {
+      // Import auth service and middleware
+      const { authService } = await import('./services/authService');
+      
+      const user = await authService.verify(req);
+      if (!user) {
         res.status(401).json({ error: 'Authentication required' });
         return;
       }
       
       sendSuccessResponse(res, {
         message: 'This is a protected route',
-        user: req.session.user,
+        user: user,
         sessionId: req.sessionID,
+        hasJWT: !!req.user,
+        hasSession: !!req.session.user,
+      });
+    });
+
+    // Example admin route
+    app.get('/api/admin', async (req, res): Promise<void> => {
+      const { authService } = await import('./services/authService');
+      
+      const user = await authService.verify(req);
+      if (!user) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+      
+      if (!['admin', 'superadmin'].includes(user.role)) {
+        res.status(403).json({ error: 'Admin access required' });
+        return;
+      }
+      
+      sendSuccessResponse(res, {
+        message: 'This is an admin-only route',
+        user: user,
+        adminLevel: user.role,
       });
     });
 
@@ -92,7 +133,7 @@ const startServer = async (): Promise<void> => {
       console.log(`🚀 Server running on http://localhost:${port}`);
       console.log(`📚 API Documentation: http://localhost:${port}/health`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🔐 Session management enabled`);
+      console.log(`🔐 Unified authentication enabled (JWT + Sessions)`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

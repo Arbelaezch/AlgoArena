@@ -6,212 +6,176 @@ import {
   getProfile, 
   refreshToken, 
   logout,
+  logoutAll,
   getSessionInfo,
-  logoutCurrentSession
-} from '../controllers/authController';
-import { authenticateToken } from '../middleware/auth';
-import { requireAuth, requireGuest, optionalAuth } from '../middleware/sessionMiddleware';
-import { 
-  loginRateLimit, 
-  registerRateLimit, 
-  refreshTokenRateLimit,
-  generalRateLimit 
-} from '../utils/rateLimiter';
-import {
-  destroyUserSession,
-  revokeAllUserSessions,
-  addFlashMessage,
+  updatePreferences,
+  getActiveSessions,
   getFlashMessages,
-  getSessionStats,
-  getUserActiveSessions,
-  updateUserSession
-} from '../services/sessionService';
+  addFlashMessage,
+  healthCheck
+} from '../controllers/authController';
+import { 
+  requireAuth, 
+  optionalAuth, 
+  requireGuest, 
+  requireRole,
+  authRateLimit
+} from '../middleware/authMiddleware';
+import {
+  loginRateLimit,
+  registerRateLimit,
+  refreshTokenRateLimit,
+  generalRateLimit
+} from '../utils/rateLimiter';
 
 const router = Router();
 
-// Apply rate limiting to auth endpoints
-router.post('/register', registerRateLimit, register);
+// ==========================================
+// CORE AUTHENTICATION ROUTES
+// ==========================================
 
-// Updated login to support both JWT and session
-router.post('/login', loginRateLimit, login);
+/**
+ * Register new user
+ */
+router.post('/register', 
+  registerRateLimit, 
+  requireGuest, 
+  register
+);
 
-router.post('/refresh-token', refreshTokenRateLimit, refreshToken);
+/**
+ * Login user
+ */
+router.post('/login', 
+  loginRateLimit,
+  requireGuest, 
+  login
+);
 
-// Session-based routes to work alongside JWT routes
-router.get('/profile', generalRateLimit, authenticateToken, getProfile);
+/**
+ * Refresh authentication tokens/session
+ */
+router.post('/refresh-token', 
+  refreshTokenRateLimit,
+  refreshToken
+);
 
-// Logout to handle both JWT and session cleanup
-router.post('/logout', generalRateLimit, logout);
+/**
+ * Get current user profile
+ */
+router.get('/profile', 
+  generalRateLimit, 
+  requireAuth, 
+  getProfile
+);
 
-// Session-specific endpoints
-router.get('/session', optionalAuth, getSessionInfo);
-router.post('/logout-session', requireAuth, logoutCurrentSession);
+/**
+ * Logout from current session/device
+ */
+router.post('/logout', 
+  generalRateLimit, 
+  logout
+);
 
-// Session-only routes
-router.post('/logout-all', requireAuth, async (req, res): Promise<void> => {
-  try {
-    const userId = req.session.user!.userId;
-    
-    // Revoke all sessions for this user
-    await revokeAllUserSessions(userId);
-    
-    res.json({
-      success: true,
-      message: 'Logged out from all devices',
-    });
-  } catch (error) {
-    console.error('Logout all error:', error);
-    res.status(500).json({
-      error: 'Server error',
-      message: 'An error occurred during logout',
-    });
-  }
-});
+/**
+ * Logout from all devices/sessions
+ */
+router.post('/logout-all', 
+  generalRateLimit, 
+  requireAuth, 
+  logoutAll
+);
 
-// Get current session info (different from JWT profile)
-router.get('/session', optionalAuth, (req, res): void => {
-  if (!req.session.user) {
-    res.json({
-      authenticated: false,
-      sessionId: req.sessionID,
-    });
-    return;
-  }
+// ==========================================
+// SESSION MANAGEMENT ROUTES
+// ==========================================
 
-  res.json({
-    authenticated: true,
-    user: {
-      id: req.session.user.userId,
-      email: req.session.user.email,
-      role: req.session.user.role,
-      loginTime: req.session.user.loginTime,
-      lastActivity: req.session.user.lastActivity,
-      preferences: req.session.user.preferences,
-    },
-    session: {
-      id: req.sessionID,
-      maxAge: req.session.cookie.maxAge,
-    },
-  });
-});
+/**
+ * Get detailed session information
+ */
+router.get('/session', 
+  generalRateLimit, 
+  optionalAuth, 
+  getSessionInfo
+);
 
-// Update session preferences
-router.patch('/preferences', requireAuth, async (req, res): Promise<void> => {
-  try {
-    const { theme, language, timezone } = req.body;
-    
-    const updates: any = {};
-    if (req.session.user!.preferences) {
-      updates.preferences = { ...req.session.user!.preferences };
-    } else {
-      updates.preferences = {};
-    }
+/**
+ * Update session preferences
+ */
+router.patch('/preferences', 
+  generalRateLimit, 
+  requireAuth, 
+  updatePreferences
+);
 
-    if (theme && ['light', 'dark'].includes(theme)) {
-      updates.preferences.theme = theme;
-    }
-    if (language) {
-      updates.preferences.language = language;
-    }
-    if (timezone) {
-      updates.preferences.timezone = timezone;
-    }
+/**
+ * Get user's active sessions
+ */
+router.get('/sessions/:userId', 
+  generalRateLimit, 
+  requireAuth, 
+  getActiveSessions
+);
 
-    await updateUserSession(req, updates);
+// ==========================================
+// FLASH MESSAGE ROUTES
+// ==========================================
 
-    res.json({
-      success: true,
-      message: 'Preferences updated',
-      preferences: updates.preferences,
-    });
-  } catch (error) {
-    console.error('Update preferences error:', error);
-    res.status(500).json({
-      error: 'Server error',
-      message: 'An error occurred while updating preferences',
-    });
-  }
-});
+/**
+ * Get flash messages
+ */
+router.get('/flash', 
+  generalRateLimit, 
+  getFlashMessages
+);
 
-// Get user's active sessions - split into two routes for clarity
-router.get('/sessions', requireAuth, async (req, res): Promise<void> => {
-  try {
-    const currentUserId = req.session.user!.userId;
-    const sessionIds = await getUserActiveSessions(currentUserId);
-    
-    res.json({
-      userId: currentUserId,
-      activeSessions: sessionIds.length,
-      sessionIds: [req.sessionID], // Only show current session to non-admins
-    });
-  } catch (error) {
-    console.error('Get sessions error:', error);
-    res.status(500).json({
-      error: 'Server error',
-      message: 'An error occurred while fetching sessions',
-    });
-  }
-});
+/**
+ * Add flash message
+ */
+router.post('/flash', 
+  generalRateLimit, 
+  requireAuth, 
+  addFlashMessage
+);
 
-// Admin route to get sessions for specific user
-router.get('/sessions/:userId', requireAuth, async (req, res): Promise<void> => {
-  try {
-    const requestedUserId = parseInt(req.params.userId);
-    const currentUserId = req.session.user!.userId;
-    const isAdmin = ['admin', 'superadmin'].includes(req.session.user!.role);
+// ==========================================
+// ADMIN ROUTES
+// ==========================================
 
-    // Check if user can view these sessions
-    if (requestedUserId !== currentUserId && !isAdmin) {
-      res.status(403).json({
-        error: 'Access denied',
-        message: 'You can only view your own sessions',
+/**
+ * Health check for authentication service
+ * Admin only
+ */
+router.get('/health', 
+  generalRateLimit, 
+  requireRole('admin'), 
+  healthCheck
+);
+
+/**
+ * Get session statistics (admin only)
+ */
+router.get('/stats', 
+  generalRateLimit, 
+  requireRole('admin'), 
+  async (req, res) => {
+    try {
+      const { getSessionStats } = await import('../services/sessionService');
+      const stats = await getSessionStats();
+      res.json({
+        success: true,
+        data: stats,
+        message: 'Session statistics retrieved successfully'
       });
-      return;
-    }
-
-    const sessionIds = await getUserActiveSessions(requestedUserId);
-    
-    res.json({
-      userId: requestedUserId,
-      activeSessions: sessionIds.length,
-      sessionIds: isAdmin ? sessionIds : [req.sessionID], // Only show current session to non-admins
-    });
-  } catch (error) {
-    console.error('Get sessions error:', error);
-    res.status(500).json({
-      error: 'Server error',
-      message: 'An error occurred while fetching sessions',
-    });
-  }
-});
-
-// Get flash messages
-router.get('/flash', (req, res): void => {
-  const messages = getFlashMessages(req);
-  res.json(messages);
-});
-
-// Admin route for session statistics
-router.get('/stats', requireAuth, async (req, res): Promise<void> => {
-  try {
-    // Check if user is admin
-    if (!['admin', 'superadmin'].includes(req.session.user!.role)) {
-      res.status(403).json({
-        error: 'Access denied',
-        message: 'This resource requires admin privileges',
+    } catch (error) {
+      console.error('Get session stats error:', error);
+      res.status(500).json({
+        error: 'Server error',
+        message: 'An error occurred while fetching session statistics',
       });
-      return;
     }
-
-    const stats = await getSessionStats();
-    res.json(stats);
-  } catch (error) {
-    console.error('Get session stats error:', error);
-    res.status(500).json({
-      error: 'Server error',
-      message: 'An error occurred while fetching session statistics',
-    });
   }
-});
+);
+
 
 export default router;
