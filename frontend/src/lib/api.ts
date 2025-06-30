@@ -1,7 +1,7 @@
 import type { AxiosInstance } from 'axios';
 import axios from 'axios';
 
-import type { UserEntity, LoginRequest, RegisterRequest, AuthResponse, RefreshTokenResponse } from '@backend-types';
+import type { UserEntity, LoginRequest, RegisterRequest, AuthResponse } from '@backend-types';
 import { parseApiError, createNetworkError } from '@/utils/errorUtils';
 
 class TokenManager {
@@ -50,7 +50,7 @@ export class ApiClient {
   private isRefreshing = false;
   private refreshPromise: Promise<string> | null = null;
 
-  constructor(baseURL: string = import.meta.env['VITE_BACKEND_API_URL'] || 'http://localhost:3001/api') {
+  constructor(baseURL: string = import.meta.env['VITE_BACKEND_API_URL'] || 'http://localhost:5000/api') {
     this.client = axios.create({
       baseURL,
       timeout: 10000,
@@ -127,7 +127,7 @@ export class ApiClient {
     try {
       const response = await axios.post<{
         success: true;
-        data: RefreshTokenResponse;
+        data: AuthResponse;
         message: string;
       }>(`${this.client.defaults.baseURL}/auth/refresh-token`, {
         refreshToken,
@@ -135,14 +135,15 @@ export class ApiClient {
         withCredentials: true,
       });
 
-      const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+      const responseData = response.data.data;
+      const { tokens } = responseData;
       
       TokenManager.setTokens(
-        accessToken, 
-        newRefreshToken || refreshToken
+        tokens.accessToken, 
+        tokens.refreshToken
       );
 
-      return accessToken;
+      return tokens.accessToken;
     } catch (error) {
       throw parseApiError(error);
     }
@@ -164,9 +165,10 @@ export class ApiClient {
         data: AuthResponse;
         message: string;
       }>('/auth/login', credentials);
-      
+
       const authData = response.data.data;
-      TokenManager.setTokens(authData.accessToken, authData.refreshToken);
+
+      TokenManager.setTokens(authData.tokens.accessToken, authData.tokens.refreshToken);
       
       return authData;
     } catch (error) {
@@ -183,7 +185,8 @@ export class ApiClient {
       }>('/auth/register', userData);
       
       const authData = response.data.data;
-      TokenManager.setTokens(authData.accessToken, authData.refreshToken);
+      
+      TokenManager.setTokens(authData.tokens.accessToken, authData.tokens.refreshToken);
       
       return authData;
     } catch (error) {
@@ -212,6 +215,19 @@ export class ApiClient {
       });
     } catch (error) {
       console.warn('Logout request failed:', parseApiError(error));
+    } finally {
+      TokenManager.clearTokens();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:logout'));
+      }
+    }
+  }
+
+  async logoutAll(): Promise<void> {
+    try {
+      await this.client.post('/auth/logout-all');
+    } catch (error) {
+      console.warn('Logout all request failed:', parseApiError(error));
     } finally {
       TokenManager.clearTokens();
       if (typeof window !== 'undefined') {
