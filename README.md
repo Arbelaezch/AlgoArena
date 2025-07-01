@@ -13,6 +13,7 @@ This platform combines sophisticated algorithmic trading tools with modern gamif
 ## 🚀 MVP Features
 
 ### Core Trading Engine
+
 - **Strategy Builder Interface**: Visual drag-and-drop builder for technical indicators and trading rules
 - **Comprehensive Backtesting**: Test strategies against 5+ years of historical data for major stocks and ETFs
 - **Paper Trading**: Real-time simulation with live market data using virtual portfolios
@@ -20,6 +21,7 @@ This platform combines sophisticated algorithmic trading tools with modern gamif
 - **Risk Management Tools**: Stop losses, position sizing, portfolio limits
 
 ### Gamification & Social Features
+
 - **Achievement System**: Badges for trading milestones, consistency, and community engagement
 - **Monthly Returns Leaderboard**: Competitive rankings reset monthly to maintain engagement
 - **Weekly/Monthly Challenges**: Themed competitions ("Beat the S&P", "Low Volatility Hero", etc.)
@@ -27,6 +29,7 @@ This platform combines sophisticated algorithmic trading tools with modern gamif
 - **Strategy Marketplace**: Users can publish and sell successful strategies to the community
 
 ### User Experience
+
 - **Interactive Dashboard**: Real-time portfolio tracking with gamified progress indicators
 - **Mobile-Responsive Design**: Full functionality across all devices
 - **Educational Tooltips**: Contextual learning for trading concepts and indicators
@@ -34,6 +37,7 @@ This platform combines sophisticated algorithmic trading tools with modern gamif
 ## 💰 Monetization Strategy
 
 ### Free Tier (Unlimited Users)
+
 - Up to 5 active strategies
 - Basic technical indicators (SMA, RSI, MACD, Bollinger Bands)
 - Monthly challenges participation
@@ -42,6 +46,7 @@ This platform combines sophisticated algorithmic trading tools with modern gamif
 - Strategy marketplace browsing
 
 ### Pro Tier ($20 CAD/month)
+
 - Unlimited strategies
 - Advanced indicators (Ichimoku, Stochastic, Williams %R, Custom indicators)
 - Premium challenges with exclusive rewards
@@ -54,6 +59,7 @@ This platform combines sophisticated algorithmic trading tools with modern gamif
 ## 🎮 Gamification Details
 
 ### Achievement System
+
 ```
 Trading Achievements:
 - "First Blood": Make your first profitable trade
@@ -69,6 +75,7 @@ Community Achievements:
 ```
 
 ### Challenge System
+
 ```
 Weekly Challenges:
 - "Beat the S&P": Outperform SPY with any strategy
@@ -82,6 +89,7 @@ Monthly Tournaments:
 ```
 
 ### Leaderboard Categories
+
 - **Monthly Returns**: Primary competitive ranking (resets monthly)
 - **Sharpe Ratio Masters**: Risk-adjusted performance leaders
 - **Consistency Champions**: Lowest volatility high performers
@@ -89,18 +97,21 @@ Monthly Tournaments:
 ## 🏁 Go-to-Market Strategy
 
 ### Phase 1: Community Building (Months 1-3)
+
 - **Target**: 1,000 active users
 - **Channels**: Reddit (r/investing, r/SecurityAnalysis), Twitter fintech community, Product Hunt launch
 - **Content**: Educational blog posts about backtesting, strategy guides, market analysis
 - **Partnerships**: Finance YouTubers and influencers for platform demos
 
 ### Phase 2: Engagement & Retention (Months 4-6)  
+
 - **Target**: 5,000 users, 5% Pro conversion
 - **Focus**: Weekly challenges, community features, strategy marketplace
 - **Marketing**: User-generated content, success stories, competitive tournaments
 - **Product**: Enhanced social features, mobile optimization
 
 ### Phase 3: Scale & Monetize (Months 7-12)
+
 - **Target**: 25,000 users, 10% Pro conversion
 - **Channels**: SEO content marketing, paid social advertising, referral programs
 - **Features**: Advanced analytics, premium challenges, strategy certification
@@ -109,6 +120,7 @@ Monthly Tournaments:
 ## 🏗️ Technical Architecture
 
 ### Cloud Infrastructure (AWS)
+
 ```
 Production Architecture:
 - Application Load Balancer (ALB)
@@ -120,6 +132,7 @@ Production Architecture:
 ```
 
 ### Backend Services
+
 ```python
 # Microservices Architecture
 services = {
@@ -133,6 +146,7 @@ services = {
 ```
 
 ### Database Schema (PostgreSQL)
+
 ```sql
 -- Core tables for MVP
 users, strategies, backtest_results, paper_trades, 
@@ -145,6 +159,7 @@ achievements, leaderboards, challenges, strategy_marketplace
 ```
 
 ### Real-time Features
+
 ```javascript
 // WebSocket connections for:
 - Live leaderboard updates
@@ -155,6 +170,7 @@ achievements, leaderboards, challenges, strategy_marketplace
 ```
 
 ### Scalability Plan
+
 ```
 User Load Distribution:
 - 1-1K users: Single ECS instance, t3.micro RDS ($15/month)
@@ -172,13 +188,15 @@ Cost Management:
 ## 🗂️ Technology Stack
 
 ### Frontend
-- **Framework**: React 18 with TypeScript
+
+- **Framework**: React with TypeScript
 - **UI Library**: Tailwind CSS + Headless UI components
 - **Charts**: Recharts for performance visualization
 - **State Management**: React Query + Zustand
 - **Real-time**: Socket.io client for live updates
 
 ### Backend
+
 - **API**: Node.js with Express.js / TypeScript
 - **Database**: PostgreSQL with TimescaleDB extension
 - **Caching**: Redis for sessions and real-time data
@@ -186,6 +204,7 @@ Cost Management:
 - **Queue System**: Bull Queue with Redis for backtesting jobs
 
 ### External Services
+
 - **Market Data**: Alpha Vantage API (free tier: 5 calls/min, 500 calls/day)
 - **Payments**: Stripe for subscription management
 - **Email**: AWS SES for notifications
@@ -195,18 +214,21 @@ Cost Management:
 ## 📋 MVP Development Timeline
 
 ### Month 1: Core Trading Engine
+
 - Strategy builder interface
 - Basic backtesting engine
 - Historical data integration
 - User authentication & profiles
 
 ### Month 2: Gamification & Social
+
 - Achievement system implementation
 - Leaderboard infrastructure  
 - Challenge framework
 - Notification system
 
 ### Month 3: Paper Trading & Polish
+
 - Real-time paper trading
 - Strategy marketplace MVP
 - Mobile optimization
@@ -215,12 +237,14 @@ Cost Management:
 ## 🔮 Post-MVP Feature Roadmap
 
 ### Advanced Analytics (Months 4-6)
+
 - **Portfolio Optimization**: Mean-variance optimization, efficient frontier analysis
 - **Risk Management**: Value at Risk (VaR), stress testing, scenario analysis
 - **Factor Analysis**: Fama-French factors, style analysis, beta calculations
 - **Advanced Charting**: Multi-timeframe analysis, custom technical indicators
 
 ### Machine Learning Integration (Months 6-9)
+
 - **Sentiment Analysis**: News sentiment scoring using FinBERT or similar models
 - **Pattern Recognition**: Technical pattern detection (head & shoulders, triangles, support/resistance)
 - **Predictive Models**: LSTM networks for price forecasting, feature engineering tools
@@ -229,6 +253,7 @@ Cost Management:
 - **Regime Detection**: Market regime classification (bull/bear/sideways) using Hidden Markov Models
 
 ### Social & Community (Months 6-12)
+
 - **Strategy Collaboration**: Team-based strategy development, shared portfolios
 - **Advanced Marketplace**: Strategy ratings, performance verification, subscription tiers
 - **Educational Content**: Interactive tutorials, strategy breakdowns, market analysis
@@ -236,6 +261,7 @@ Cost Management:
 - **Live Events**: Virtual trading competitions, expert Q&A sessions
 
 ### Platform Expansion (Months 9-12)
+
 - **Asset Class Expansion**: Cryptocurrency, forex, commodities, options strategies
 - **International Markets**: European and Asian stock exchanges
 - **Mobile App**: Native iOS/Android app with full feature parity
@@ -245,18 +271,21 @@ Cost Management:
 ## 🚧 Technical Considerations
 
 ### Security & Compliance
+
 - SOC 2 Type II compliance preparation
 - GDPR compliance for international users
 - Secure API design with rate limiting
 - Regular security audits and penetration testing
 
 ### Performance Optimization
+
 - Database query optimization for large datasets
 - Efficient backtesting algorithms using vectorized operations
 - CDN utilization for global performance
 - Real-time data streaming optimization
 
 ### Monitoring & Analytics
+
 - Application performance monitoring (APM)
 - User behavior analytics
 - Trading strategy performance tracking
