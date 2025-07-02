@@ -4,22 +4,15 @@ import {
   Mail, 
   Phone, 
   MapPin, 
-  Calendar, 
   Edit3, 
   Save, 
   X, 
   Camera,
-  TrendingUp,
-  Bell,
-  Search,
-  Menu,
   DollarSign,
   Trophy,
   Star,
   Activity
 } from 'lucide-react';
-
-import Sidebar from '@components/Sidebar';
 
 interface UserProfile {
   id: string;
@@ -145,8 +138,6 @@ const EditableField: React.FC<EditableFieldProps> = ({
 };
 
 const ProfilePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('profile');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   
   const [profile, setProfile] = useState<UserProfile>({
@@ -175,6 +166,8 @@ const ProfilePage: React.FC = () => {
   const handleSave = () => {
     setProfile(editedProfile);
     setIsEditing(false);
+    // Here you would typically make an API call to save the changes
+    // await updateProfile(editedProfile);
   };
 
   const handleCancel = () => {
@@ -221,222 +214,161 @@ const ProfilePage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header - Matching your existing header exactly */}
-      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
-        <div className="flex items-center justify-between px-4 lg:px-6 py-4">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
-            >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <TrendingUp size={20} className="text-white" />
-              </div>
-              <h1 className="text-xl font-bold text-gray-900">AlgoArena</h1>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <div className="relative hidden md:block">
-              <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search strategies..."
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <button className="p-2 rounded-lg hover:bg-gray-100 relative">
-              <Bell size={20} className="text-gray-600" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-            </button>
-            <button className="p-2 rounded-lg hover:bg-gray-100">
-              <User size={20} className="text-gray-600" />
-            </button>
-          </div>
+    <div className="space-y-6">
+      {/* Header with action buttons */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Profile</h1>
+          <p className="text-gray-600 mt-1">Manage your account settings and preferences</p>
         </div>
-      </header>
-
-      <div className="flex">
-        {/* Sidebar - Using your existing component */}
-        <Sidebar 
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          isMobileMenuOpen={isMobileMenuOpen}
-          onMobileMenuClose={() => setIsMobileMenuOpen(false)}
-        />
-
-        {/* Main Content */}
-        <main className="flex-1 p-6 lg:p-8">
-          <div className="space-y-6">
-            {/* Header with your button styling */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Profile</h1>
-                <p className="text-gray-600 mt-1">Manage your account settings and preferences</p>
-              </div>
-              
-              {!isEditing ? (
-                <button
-                  onClick={handleEdit}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105"
-                >
-                  <Edit3 size={20} />
-                  <span>Edit Profile</span>
-                </button>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleSave}
-                    className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105"
-                  >
-                    <Save size={20} />
-                    <span>Save</span>
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-6 py-3 rounded-xl hover:from-gray-700 hover:to-gray-800 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105"
-                  >
-                    <X size={20} />
-                    <span>Cancel</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Stats Grid - Matching your exact styling */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {statsCards.map((card, index) => (
-                <ProfileStatsCard key={index} {...card} />
-              ))}
-            </div>
-
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Profile Information */}
-              <div className="lg:col-span-2">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-6">Personal Information</h2>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <EditableField
-                      label="Full Name"
-                      value={isEditing ? editedProfile.name : profile.name}
-                      icon={User}
-                      isEditing={isEditing}
-                      onChange={(value) => updateField('name', value)}
-                    />
-
-                    <EditableField
-                      label="Email Address"
-                      value={isEditing ? editedProfile.email : profile.email}
-                      type="email"
-                      icon={Mail}
-                      isEditing={isEditing}
-                      onChange={(value) => updateField('email', value)}
-                    />
-
-                    <EditableField
-                      label="Phone Number"
-                      value={isEditing ? editedProfile.phone : profile.phone}
-                      type="tel"
-                      icon={Phone}
-                      isEditing={isEditing}
-                      onChange={(value) => updateField('phone', value)}
-                    />
-
-                    <EditableField
-                      label="Location"
-                      value={isEditing ? editedProfile.location : profile.location}
-                      icon={MapPin}
-                      isEditing={isEditing}
-                      onChange={(value) => updateField('location', value)}
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <EditableField
-                      label="Bio"
-                      value={isEditing ? editedProfile.bio : profile.bio}
-                      type="textarea"
-                      icon={Edit3}
-                      isEditing={isEditing}
-                      onChange={(value) => updateField('bio', value)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Profile Picture & Account Info */}
-              <div className="space-y-6">
-                {/* Profile Picture */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Picture</h3>
-                  
-                  <div className="text-center">
-                    <div className="relative inline-block">
-                      <img
-                        src={profile.avatar}
-                        alt={profile.name}
-                        className="w-24 h-24 rounded-full object-cover border-4 border-gray-100"
-                      />
-                      {isEditing && (
-                        <button className="absolute bottom-0 right-0 p-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105">
-                          <Camera size={16} />
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 mt-3">
-                      {isEditing ? 'Click camera icon to change' : 'Profile photo'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Account Status */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Status</h3>
-                  
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Member Since</span>
-                      <span className="font-medium text-gray-900">{profile.joinDate}</span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Account Type</span>
-                      <span className="px-3 py-1 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-full text-sm font-medium">
-                        Premium
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Total Strategies</span>
-                      <span className="font-medium text-gray-900">{profile.totalStrategies}</span>
-                    </div>
-                    
-                    <div className="pt-4 border-t border-gray-200">
-                      <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 font-medium">
-                        Upgrade Account
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+        
+        {!isEditing ? (
+          <button
+            onClick={handleEdit}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105"
+          >
+            <Edit3 size={20} />
+            <span>Edit Profile</span>
+          </button>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105"
+            >
+              <Save size={20} />
+              <span>Save</span>
+            </button>
+            <button
+              onClick={handleCancel}
+              className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-6 py-3 rounded-xl hover:from-gray-700 hover:to-gray-800 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105"
+            >
+              <X size={20} />
+              <span>Cancel</span>
+            </button>
           </div>
-        </main>
+        )}
       </div>
 
-      {/* Mobile Menu Overlay - Matching your existing implementation */}
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {statsCards.map((card, index) => (
+          <ProfileStatsCard key={index} {...card} />
+        ))}
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Profile Information */}
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Personal Information</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <EditableField
+                label="Full Name"
+                value={isEditing ? editedProfile.name : profile.name}
+                icon={User}
+                isEditing={isEditing}
+                onChange={(value) => updateField('name', value)}
+              />
+
+              <EditableField
+                label="Email Address"
+                value={isEditing ? editedProfile.email : profile.email}
+                type="email"
+                icon={Mail}
+                isEditing={isEditing}
+                onChange={(value) => updateField('email', value)}
+              />
+
+              <EditableField
+                label="Phone Number"
+                value={isEditing ? editedProfile.phone : profile.phone}
+                type="tel"
+                icon={Phone}
+                isEditing={isEditing}
+                onChange={(value) => updateField('phone', value)}
+              />
+
+              <EditableField
+                label="Location"
+                value={isEditing ? editedProfile.location : profile.location}
+                icon={MapPin}
+                isEditing={isEditing}
+                onChange={(value) => updateField('location', value)}
+              />
+            </div>
+
+            <div className="mt-6">
+              <EditableField
+                label="Bio"
+                value={isEditing ? editedProfile.bio : profile.bio}
+                type="textarea"
+                icon={Edit3}
+                isEditing={isEditing}
+                onChange={(value) => updateField('bio', value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Profile Picture & Account Info */}
+        <div className="space-y-6">
+          {/* Profile Picture */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Picture</h3>
+            
+            <div className="text-center">
+              <div className="relative inline-block">
+                <img
+                  src={profile.avatar}
+                  alt={profile.name}
+                  className="w-24 h-24 rounded-full object-cover border-4 border-gray-100"
+                />
+                {isEditing && (
+                  <button className="absolute bottom-0 right-0 p-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105">
+                    <Camera size={16} />
+                  </button>
+                )}
+              </div>
+              <p className="text-sm text-gray-600 mt-3">
+                {isEditing ? 'Click camera icon to change' : 'Profile photo'}
+              </p>
+            </div>
+          </div>
+
+          {/* Account Status */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Status</h3>
+            
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Member Since</span>
+                <span className="font-medium text-gray-900">{profile.joinDate}</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Account Type</span>
+                <span className="px-3 py-1 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-full text-sm font-medium">
+                  Premium
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Total Strategies</span>
+                <span className="font-medium text-gray-900">{profile.totalStrategies}</span>
+              </div>
+              
+              <div className="pt-4 border-t border-gray-200">
+                <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 font-medium">
+                  Upgrade Account
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
