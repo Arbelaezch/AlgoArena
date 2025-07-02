@@ -15,17 +15,15 @@ import {
   healthCheck
 } from '../controllers/authController.js';
 import { 
-  requireAuth, 
-  optionalAuth, 
-  requireGuest, 
+  requireAuth,
+  optionalAuth,
   requireRole,
-  authRateLimit
 } from '../middleware/authMiddleware.js';
 import {
-  loginRateLimit,
-  registerRateLimit,
+  authRateLimit,
   refreshTokenRateLimit,
-  generalRateLimit
+  apiRateLimit,
+  userRateLimit
 } from '../utils/rateLimiter.js';
 
 const router = Router();
@@ -38,8 +36,7 @@ const router = Router();
  * Register new user
  */
 router.post('/register', 
-  registerRateLimit, 
-  requireGuest, 
+  authRateLimit, 
   register
 );
 
@@ -47,8 +44,7 @@ router.post('/register',
  * Login user
  */
 router.post('/login', 
-  loginRateLimit,
-  requireGuest, 
+  authRateLimit,
   login
 );
 
@@ -64,7 +60,7 @@ router.post('/refresh-token',
  * Get current user profile
  */
 router.get('/profile', 
-  generalRateLimit, 
+  userRateLimit, 
   requireAuth, 
   getProfile
 );
@@ -73,7 +69,7 @@ router.get('/profile',
  * Logout from current session/device
  */
 router.post('/logout', 
-  generalRateLimit, 
+  apiRateLimit, 
   logout
 );
 
@@ -81,7 +77,7 @@ router.post('/logout',
  * Logout from all devices/sessions
  */
 router.post('/logout-all', 
-  generalRateLimit, 
+  userRateLimit, 
   requireAuth, 
   logoutAll
 );
@@ -94,7 +90,7 @@ router.post('/logout-all',
  * Get detailed session information
  */
 router.get('/session', 
-  generalRateLimit, 
+  apiRateLimit, 
   optionalAuth, 
   getSessionInfo
 );
@@ -103,7 +99,7 @@ router.get('/session',
  * Update session preferences
  */
 router.patch('/preferences', 
-  generalRateLimit, 
+  userRateLimit, 
   requireAuth, 
   updatePreferences
 );
@@ -112,7 +108,7 @@ router.patch('/preferences',
  * Get user's active sessions
  */
 router.get('/sessions/:userId', 
-  generalRateLimit, 
+  userRateLimit, 
   requireAuth, 
   getActiveSessions
 );
@@ -125,7 +121,7 @@ router.get('/sessions/:userId',
  * Get flash messages
  */
 router.get('/flash', 
-  generalRateLimit, 
+  apiRateLimit, 
   getFlashMessages
 );
 
@@ -133,7 +129,7 @@ router.get('/flash',
  * Add flash message
  */
 router.post('/flash', 
-  generalRateLimit, 
+  userRateLimit, 
   requireAuth, 
   addFlashMessage
 );
@@ -147,7 +143,7 @@ router.post('/flash',
  * Admin only
  */
 router.get('/health', 
-  generalRateLimit, 
+  apiRateLimit, 
   requireRole('admin'), 
   healthCheck
 );
@@ -156,7 +152,7 @@ router.get('/health',
  * Get session statistics (admin only)
  */
 router.get('/stats', 
-  generalRateLimit, 
+  apiRateLimit, 
   requireRole('admin'), 
   async (req, res) => {
     try {
@@ -176,6 +172,5 @@ router.get('/stats',
     }
   }
 );
-
 
 export default router;
