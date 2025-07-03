@@ -4,7 +4,6 @@ import { useLocation, useNavigate } from 'react-router';
 import type { NavigationItem, NavigationState, NavigationContextType } from '@/types/navigation';
 import { NavigationContext } from '@/types/navigation';
 
-
 interface NavigationProviderProps {
   children: ReactNode;
   navigationItems: NavigationItem[];
@@ -46,6 +45,14 @@ export function NavigationProvider({ children, navigationItems }: NavigationProv
         
         if (currentItem && currentItem.path !== '/dashboard') {
           breadcrumbs.push({ label: currentItem.label });
+        }
+      } else {
+        // For non-dashboard routes, add a generic breadcrumb
+        const routeName = pathSegments[0];
+        if (routeName) {
+          breadcrumbs.push({ 
+            label: routeName.charAt(0).toUpperCase() + routeName.slice(1).replace('-', ' ')
+          });
         }
       }
 
