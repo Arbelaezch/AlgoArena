@@ -1,28 +1,9 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
-interface NavigationItem {
-  id: string;
-  label: string;
-  path: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-}
+import type { NavigationItem, NavigationState, NavigationContextType } from '@/types/navigation';
+import { NavigationContext } from '@/types/navigation';
 
-interface NavigationState {
-  currentPath: string;
-  breadcrumbs: Array<{ label: string; path?: string }>;
-  navigationItems: NavigationItem[];
-}
-
-interface NavigationContextType extends NavigationState {
-  setCurrentPath: (path: string) => void;
-  setBreadcrumbs: (breadcrumbs: Array<{ label: string; path?: string }>) => void;
-  navigateToTab: (tabId: string) => void;
-  isActiveTab: (tabId: string) => boolean;
-  getActiveTab: () => string;
-}
-
-const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
 
 interface NavigationProviderProps {
   children: ReactNode;
@@ -129,12 +110,4 @@ export function NavigationProvider({ children, navigationItems }: NavigationProv
       {children}
     </NavigationContext.Provider>
   );
-}
-
-export function useNavigation(): NavigationContextType {
-  const context = useContext(NavigationContext);
-  if (context === undefined) {
-    throw new Error('useNavigation must be used within a NavigationProvider');
-  }
-  return context;
 }

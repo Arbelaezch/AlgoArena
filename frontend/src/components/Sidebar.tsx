@@ -1,7 +1,7 @@
 import React, { useTransition } from 'react';
 import { Link } from 'react-router';
 
-import { useNavigation } from '@/contexts/NavigationContext';
+import { useNavigation } from '@/contexts/useNavigation';
 
 interface SidebarProps {
   isMobileMenuOpen: boolean;

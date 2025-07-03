@@ -11,18 +11,14 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '@/hooks/auth/useAuth';
-import { useNavigation } from '@/contexts/NavigationContext';
+import { useNavigation } from '@/contexts/useNavigation';
 import Sidebar from '@/components/Sidebar';
 
 const DashboardLayout = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { breadcrumbs } = useNavigation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const handleLogout = async () => {
-    await logout();
-  };
 
   const handleProfile = () => {
     navigate('/profile');
