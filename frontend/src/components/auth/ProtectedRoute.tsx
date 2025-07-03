@@ -33,11 +33,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       return <>{fallback}</>;
     }
     
-    // Preserve the intended destination for redirect after login
+    // Redirect to dashboard after login
+    const shouldPreserveLocation = location.pathname.startsWith('/dashboard');
+    const from = shouldPreserveLocation ? location.pathname : '/dashboard';
+    
     return (
       <Navigate 
         to={redirectTo} 
-        state={{ from: location.pathname }} 
+        state={{ from }} 
         replace 
       />
     );
