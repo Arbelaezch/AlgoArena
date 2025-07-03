@@ -25,6 +25,10 @@ export function NavigationProvider({ children, navigationItems }: NavigationProv
     setState(prev => ({ ...prev, currentPath: location.pathname }));
   }, [location.pathname]);
 
+  const setBreadcrumbs = useCallback((breadcrumbs: Array<{ label: string; path?: string }>) => {
+    setState(prev => ({ ...prev, breadcrumbs }));
+  }, []);
+
   // Auto-generate breadcrumbs based on current path
   useEffect(() => {
     const generateBreadcrumbs = () => {
@@ -49,14 +53,10 @@ export function NavigationProvider({ children, navigationItems }: NavigationProv
     };
 
     setBreadcrumbs(generateBreadcrumbs());
-  }, [location.pathname, navigationItems]);
+  }, [location.pathname, navigationItems, setBreadcrumbs]);
 
   const setCurrentPath = useCallback((path: string) => {
     setState(prev => ({ ...prev, currentPath: path }));
-  }, []);
-
-  const setBreadcrumbs = useCallback((breadcrumbs: Array<{ label: string; path?: string }>) => {
-    setState(prev => ({ ...prev, breadcrumbs }));
   }, []);
 
   const navigateToTab = useCallback((tabId: string) => {
@@ -89,9 +89,13 @@ export function NavigationProvider({ children, navigationItems }: NavigationProv
     });
 
     // Return the most specific match (longest path)
+    if (matchingItems.length === 0) {
+      return 'dashboard';
+    }
+
     const activeItem = matchingItems.reduce((longest, current) => 
       current.path.length > longest.path.length ? current : longest
-    , matchingItems[0]);
+    );
 
     return activeItem?.id || 'dashboard';
   }, [location.pathname, navigationItems]);
