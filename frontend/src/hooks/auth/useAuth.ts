@@ -1,7 +1,7 @@
 import { useState, useEffect, createContext, useContext, useCallback, createElement } from 'react';
 import type { ReactNode } from 'react';
 
-import { apiClient } from '@/lib/api';
+import { authService } from '@/services/authService';
 import type { UserEntity, LoginRequest, RegisterRequest } from '@backend-types';
 import { type AppError } from '@/types/error';
 import { parseApiError, getUserFriendlyMessage } from '@/utils/errorUtils';
@@ -143,8 +143,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
    */
   const initializeAuth = async () => {
     try {
-      if (apiClient.isAuthenticated()) {
-        const user = await apiClient.getProfile();
+      if (authService.isAuthenticated()) {
+        const user = await authService.getProfile();
         setAuthSuccess(user);
       } else {
         setState(prev => ({ ...prev, isLoading: false }));
@@ -162,7 +162,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   */
   const login = useCallback(async (credentials: LoginRequest) => {
     await executeAuthAction(
-      () => apiClient.login(credentials)
+      () => authService.login(credentials)
     );
   }, [executeAuthAction]);
 
@@ -173,7 +173,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
    */
   const register = useCallback(async (userData: RegisterRequest) => {
     await executeAuthAction(
-      () => apiClient.register(userData)
+      () => authService.register(userData)
     );
   }, [executeAuthAction]);
 
@@ -186,7 +186,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setLoading(true);
     
     try {
-      await apiClient.logout();
+      await authService.logout();
     } catch (error) {
       console.warn('Logout request failed:', error);
     } finally {
@@ -201,7 +201,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
    */
   const refreshProfile = useCallback(async () => {
     try {
-      const user = await apiClient.getProfile();
+      const user = await authService.getProfile();
       setState(prev => ({ ...prev, user }));
     } catch (error) {
       console.warn('Failed to refresh profile:', error);
