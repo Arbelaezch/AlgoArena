@@ -4,9 +4,14 @@ import axios from 'axios';
 import type { UserEntity, LoginRequest, RegisterRequest, AuthResponse } from '@backend-types';
 import { parseApiError, createNetworkError } from '@/utils/errorUtils';
 
+/**
+ * Token management utility for handling JWT access and refresh tokens
+ * Provides secure storage, validation, and expiry checking
+ */
 class TokenManager {
   private static readonly ACCESS_TOKEN_KEY = 'accessToken';
   private static readonly REFRESH_TOKEN_KEY = 'refreshToken';
+  private static readonly TOKEN_REFRESH_BUFFER = 5 * 60 * 1000; // 5 minutes before expiry
 
   static getAccessToken(): string | null {
     if (typeof window === 'undefined') return null;
@@ -30,6 +35,9 @@ class TokenManager {
     localStorage.removeItem(this.REFRESH_TOKEN_KEY);
   }
 
+  /**
+   * Check if a JWT token has expired
+   */
   static isTokenExpired(token: string): boolean {
     try {
       const parts = token.split('.');
@@ -43,12 +51,57 @@ class TokenManager {
       return true;
     }
   }
+
+  /**
+   * Check if a JWT token is expiring soon (within the refresh buffer)
+   */
+  static isTokenExpiringSoon(token: string): boolean {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3 || !parts[1]) {
+        return true; // Invalid JWT format
+      }
+      
+      const payload = JSON.parse(atob(parts[1]));
+      return Date.now() >= (payload.exp * 1000) - this.TOKEN_REFRESH_BUFFER;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * Get the expiry time of a JWT token in milliseconds
+   */
+  static getTokenExpiryTime(token: string): number | null {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3 || !parts[1]) {
+        return null;
+      }
+      
+      const payload = JSON.parse(atob(parts[1]));
+      return payload.exp * 1000; // Convert to milliseconds
+    } catch {
+      return null;
+    }
+  }
 }
 
+/**
+ * Enhanced API client with automatic token refresh and queue management
+ * Handles JWT authentication with proactive token renewal
+ */
 export class ApiClient {
   private client: AxiosInstance;
   private isRefreshing = false;
   private refreshPromise: Promise<string> | null = null;
+  private refreshTimer: NodeJS.Timeout | null = null;
+  
+  // Queue for requests waiting for token refresh
+  private failedQueue: Array<{
+    resolve: (token: string) => void;
+    reject: (error: any) => void;
+  }> = [];
 
   constructor(baseURL: string = import.meta.env['VITE_BACKEND_API_URL'] || 'http://localhost:5000/api') {
     this.client = axios.create({
@@ -61,35 +114,72 @@ export class ApiClient {
     });
 
     this.setupInterceptors();
+    this.scheduleTokenRefresh();
   }
 
+  /**
+   * Set up request and response interceptors for automatic token handling
+   */
   private setupInterceptors(): void {
-    // Request interceptor - add auth token
+    // Request interceptor - add auth token and handle proactive refresh
     this.client.interceptors.request.use(
-      (config) => {
+      async (config) => {
         const token = TokenManager.getAccessToken();
-        if (token && !TokenManager.isTokenExpired(token)) {
-          config.headers.Authorization = `Bearer ${token}`;
+        
+        if (token) {
+          if (TokenManager.isTokenExpired(token)) {
+            // Token is already expired, refresh before making the request
+            try {
+              const newToken = await this.refreshAccessToken();
+              config.headers.Authorization = `Bearer ${newToken}`;
+            } catch (error) {
+              this.handleAuthFailure();
+              throw error;
+            }
+          } else if (TokenManager.isTokenExpiringSoon(token)) {
+            // Token is expiring soon, refresh proactively (don't block the request)
+            this.refreshAccessToken().catch(() => {
+              // Silent fail for proactive refresh
+            });
+            config.headers.Authorization = `Bearer ${token}`;
+          } else {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
         }
+        
         return config;
       },
       (error) => Promise.reject(parseApiError(error))
     );
 
-    // Response interceptor - handle token refresh and errors
+    // Response interceptor - handle 401 errors with token refresh and retry
     this.client.interceptors.response.use(
       (response) => response,
       async (error) => {
         const originalRequest = error.config;
 
         if (error.response?.status === 401 && !originalRequest._retry) {
+          if (this.isRefreshing) {
+            // Another request is already refreshing, queue this request
+            return new Promise((resolve, reject) => {
+              this.failedQueue.push({ resolve, reject });
+            }).then((token) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              return this.client(originalRequest);
+            }).catch((err) => {
+              return Promise.reject(err);
+            });
+          }
+
           originalRequest._retry = true;
 
           try {
             const newAccessToken = await this.refreshAccessToken();
+            this.processQueue(null, newAccessToken);
             originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
             return this.client(originalRequest);
           } catch (refreshError) {
+            this.processQueue(refreshError, null);
             this.handleAuthFailure();
             return Promise.reject(parseApiError(refreshError));
           }
@@ -100,6 +190,24 @@ export class ApiClient {
     );
   }
 
+  /**
+   * Process queued requests after token refresh completes
+   */
+  private processQueue(error: any, token: string | null): void {
+    this.failedQueue.forEach(({ resolve, reject }) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(token!);
+      }
+    });
+    
+    this.failedQueue = [];
+  }
+
+  /**
+   * Refresh the access token using the stored refresh token
+   */
   private async refreshAccessToken(): Promise<string> {
     if (this.isRefreshing && this.refreshPromise) {
       return this.refreshPromise;
@@ -109,12 +217,15 @@ export class ApiClient {
     
     try {
       const refreshToken = TokenManager.getRefreshToken();
-      if (!refreshToken) {
-        throw createNetworkError('No refresh token available');
+      if (!refreshToken || TokenManager.isTokenExpired(refreshToken)) {
+        throw createNetworkError('No valid refresh token available');
       }
 
       this.refreshPromise = this.performTokenRefresh(refreshToken);
       const newAccessToken = await this.refreshPromise;
+      
+      // Schedule next refresh
+      this.scheduleTokenRefresh();
       
       return newAccessToken;
     } finally {
@@ -133,6 +244,7 @@ export class ApiClient {
         refreshToken,
       }, {
         withCredentials: true,
+        timeout: 10000,
       });
 
       const responseData = response.data.data;
@@ -149,8 +261,40 @@ export class ApiClient {
     }
   }
 
+  private scheduleTokenRefresh(): void {
+    // Clear existing timer
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+
+    const token = TokenManager.getAccessToken();
+    if (!token) return;
+
+    const expiryTime = TokenManager.getTokenExpiryTime(token);
+    if (!expiryTime) return;
+
+    // Schedule refresh 2 minutes before expiry
+    const refreshTime = expiryTime - Date.now() - (2 * 60 * 1000);
+    
+    if (refreshTime > 0) {
+      this.refreshTimer = setTimeout(() => {
+        this.refreshAccessToken().catch(() => {
+          // Silent fail for scheduled refresh - let request interceptor handle auth failures
+        });
+      }, refreshTime);
+    }
+  }
+
   private handleAuthFailure(): void {
+    // Clear refresh timer
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+    
     TokenManager.clearTokens();
+    
     // Dispatch custom event for auth context to handle
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('auth:logout'));
@@ -170,6 +314,9 @@ export class ApiClient {
 
       TokenManager.setTokens(authData.tokens.accessToken, authData.tokens.refreshToken);
       
+      // Schedule the first refresh
+      this.scheduleTokenRefresh();
+      
       return authData;
     } catch (error) {
       throw parseApiError(error);
@@ -187,6 +334,9 @@ export class ApiClient {
       const authData = response.data.data;
       
       TokenManager.setTokens(authData.tokens.accessToken, authData.tokens.refreshToken);
+      
+      // Schedule the first refresh
+      this.scheduleTokenRefresh();
       
       return authData;
     } catch (error) {
@@ -210,6 +360,12 @@ export class ApiClient {
 
   async logout(): Promise<void> {
     try {
+      // Clear refresh timer first
+      if (this.refreshTimer) {
+        clearTimeout(this.refreshTimer);
+        this.refreshTimer = null;
+      }
+
       await this.client.post('/auth/logout', {
         refreshToken: TokenManager.getRefreshToken()
       });
@@ -225,6 +381,12 @@ export class ApiClient {
 
   async logoutAll(): Promise<void> {
     try {
+      // Clear refresh timer first
+      if (this.refreshTimer) {
+        clearTimeout(this.refreshTimer);
+        this.refreshTimer = null;
+      }
+
       await this.client.post('/auth/logout-all');
     } catch (error) {
       console.warn('Logout all request failed:', parseApiError(error));
@@ -244,6 +406,31 @@ export class ApiClient {
 
   getClient(): AxiosInstance {
     return this.client;
+  }
+
+  // Manual refresh method for testing
+  async manualRefresh(): Promise<void> {
+    await this.refreshAccessToken();
+  }
+
+  // Get token info for debugging
+  getTokenInfo(): {
+    hasAccessToken: boolean;
+    hasRefreshToken: boolean;
+    accessTokenExpiry: number | null;
+    isAccessTokenExpired: boolean;
+    isAccessTokenExpiringSoon: boolean;
+  } {
+    const accessToken = TokenManager.getAccessToken();
+    const refreshToken = TokenManager.getRefreshToken();
+    
+    return {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+      accessTokenExpiry: accessToken ? TokenManager.getTokenExpiryTime(accessToken) : null,
+      isAccessTokenExpired: accessToken ? TokenManager.isTokenExpired(accessToken) : true,
+      isAccessTokenExpiringSoon: accessToken ? TokenManager.isTokenExpiringSoon(accessToken) : true,
+    };
   }
 }
 

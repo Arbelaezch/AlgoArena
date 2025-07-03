@@ -215,7 +215,7 @@ export class AuthService {
     }
 
     // Immediately blacklist the old refresh token
-    await blacklistToken(oldRefreshToken, 7 * 24 * 60 * 60); // 7 days
+    await blacklistToken(oldRefreshToken, 60 * 60); // 1 hour
     
     // Remove old token from user's active tokens
     await removeRefreshToken(decoded.userId, oldRefreshToken);
