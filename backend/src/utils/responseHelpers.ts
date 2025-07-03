@@ -43,7 +43,7 @@ export const sendPaginatedResponse = <T = unknown>(
   });
 };
 
-export const sendError = (
+export const sendErrorResponse = (
   res: Response,
   code: string,
   message: string,

@@ -3,7 +3,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { AppError } from '../errors/AppError.js';
 import { ValidationError } from '../errors/ValidationError.js';
 import { ERROR_CODES } from '../types/error.js';
-import { sendError } from '../utils/responseHelpers.js';
+import { sendErrorResponse } from '../utils/responseHelpers.js';
 
 // Generate unique request ID
 const generateRequestId = (): string => {
@@ -89,7 +89,7 @@ export const errorHandler = (
   // Send standardized error response using your existing helper
   const includeDetails = appError.details && (process.env.NODE_ENV !== 'production' || appError.isOperational);
   
-  sendError(
+  sendErrorResponse(
     res,
     appError.code,
     appError.message,
