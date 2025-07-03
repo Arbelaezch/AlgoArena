@@ -11,8 +11,11 @@ import {
   DollarSign,
   Trophy,
   Star,
-  Activity
+  Activity,
+  LogOut
 } from 'lucide-react';
+
+import { useAuth } from '@/hooks/auth/useAuth';
 
 interface UserProfile {
   id: string;
@@ -139,6 +142,7 @@ const EditableField: React.FC<EditableFieldProps> = ({
 
 const ProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
+  const { user, logout } = useAuth();
   
   const [profile, setProfile] = useState<UserProfile>({
     id: 'user_123',
@@ -173,6 +177,10 @@ const ProfilePage: React.FC = () => {
   const handleCancel = () => {
     setEditedProfile(profile);
     setIsEditing(false);
+  };
+
+  const handleLogout = () => {
+    logout();
   };
 
   const updateField = (field: keyof UserProfile, value: string) => {
@@ -360,9 +368,17 @@ const ProfilePage: React.FC = () => {
                 <span className="font-medium text-gray-900">{profile.totalStrategies}</span>
               </div>
               
-              <div className="pt-4 border-t border-gray-200">
+              <div className="pt-4 border-t border-gray-200 space-y-3">
                 <button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 font-medium">
                   Upgrade Account
+                </button>
+                
+                <button
+                  onClick={handleLogout}
+                  className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-3 rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 font-medium flex items-center justify-center space-x-2"
+                >
+                  <LogOut size={18} />
+                  <span>Logout</span>
                 </button>
               </div>
             </div>
