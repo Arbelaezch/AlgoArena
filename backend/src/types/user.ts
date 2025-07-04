@@ -6,6 +6,10 @@ export interface UserEntity {
     username: string;
     first_name?: string;
     last_name?: string;
+    phone?: string;
+    location?: string;
+    bio?: string;
+    avatar?: string;
     balance: number;
     role: UserRole;
     created_at: Date;

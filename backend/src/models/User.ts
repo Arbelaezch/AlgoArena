@@ -4,9 +4,9 @@ import { hashPassword } from '../utils/password.js';
 import { userChanged } from '../events/userEvents.js';
 
 // Field constants for reusable SELECT clauses
-const USER_FIELDS = 'id, email, username, first_name, last_name, balance, role, created_at, updated_at';
-const USER_FIELDS_WITH_PASSWORD = 'id, email, username, password_hash, first_name, last_name, balance, role, created_at, updated_at';
-const USER_RETURNING_FIELDS = 'id, email, username, first_name, last_name, balance, role, created_at, updated_at';
+const USER_FIELDS = 'id, email, username, first_name, last_name, phone, location, bio, avatar, balance, role, created_at, updated_at';
+const USER_FIELDS_WITH_PASSWORD = 'id, email, username, password_hash, first_name, last_name, phone, location, bio, avatar, balance, role, created_at, updated_at';
+const USER_RETURNING_FIELDS = 'id, email, username, first_name, last_name, phone, location, bio, avatar, balance, role, created_at, updated_at';
 
 export class User {
   /**
@@ -187,9 +187,9 @@ export class User {
   }
 
   /**
-   * Update user profile - Now with dynamic field building!
+   * Update user profile
    */
-  static async updateProfile(id: number, data: Partial<Pick<UserEntity, 'email' | 'username' | 'first_name' | 'last_name' | 'role'>>): Promise<UserEntity | null> {
+  static async updateProfile(id: number, data: Partial<Pick<UserEntity, 'email' | 'username' | 'first_name' | 'last_name' | 'phone' | 'location' | 'bio' | 'avatar' | 'role'>>): Promise<UserEntity | null> {
     const updateFields = [];
     const values = [];
     let paramIndex = 1;
@@ -260,6 +260,48 @@ export class User {
     }
     
     return success;
+  }
+
+  /**
+   * Update user avatar
+   */
+  static async updateAvatar(id: number, avatarUrl: string): Promise<UserEntity | null> {
+    const sql = `
+      UPDATE users 
+      SET avatar = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING ${USER_RETURNING_FIELDS}
+    `;
+    
+    const user = await queryOne<UserEntity>(sql, [avatarUrl, id]);
+    
+    // Emit user changed event if update was successful
+    if (user) {
+      userChanged(id);
+    }
+    
+    return user;
+  }
+
+  /**
+   * Delete user avatar
+   */
+  static async deleteAvatar(id: number): Promise<UserEntity | null> {
+    const sql = `
+      UPDATE users 
+      SET avatar = NULL, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING ${USER_RETURNING_FIELDS}
+    `;
+    
+    const user = await queryOne<UserEntity>(sql, [id]);
+    
+    // Emit user changed event if update was successful
+    if (user) {
+      userChanged(id);
+    }
+    
+    return user;
   }
 
   /**
