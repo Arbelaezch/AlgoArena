@@ -64,6 +64,7 @@ services:
     volumes:
       - ./backend:/app      # Your host backend/ → container /app
       - /app/node_modules   # Keep node_modules in container only
+      - ./backend/uploads:/app/uploads  # Mount uploads directory
     environment:
       NODE_ENV: development
       PORT: 5000
