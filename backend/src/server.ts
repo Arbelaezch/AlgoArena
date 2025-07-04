@@ -16,6 +16,7 @@ import { optionalAuth } from './middleware/authMiddleware.js';
 import { sendSuccessResponse } from './utils/responseHelpers.js';
 import { authService } from './services/authService.js';
 import authRoutes from './routes/auth.js';
+import userRoutes from './routes/user.js';
 import routes from './routes/index.js';
 import './types/request.js';
 import './types/session.js';
@@ -96,6 +97,7 @@ const startServer = async (): Promise<void> => {
 
     // Authentication routes
     app.use('/api/auth', authRoutes);
+    app.use('/api/users', userRoutes);
     
     // Other API routes
     app.use('/api', routes);
