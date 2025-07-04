@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   User, 
   Mail, 
@@ -12,26 +12,14 @@ import {
   Trophy,
   Star,
   Activity,
-  LogOut
+  LogOut,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 
 import { useAuth } from '@/hooks/auth/useAuth';
-
-interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  location: string;
-  joinDate: string;
-  avatar: string;
-  bio: string;
-  totalStrategies: number;
-  activeStrategies: number;
-  portfolioValue: string;
-  rank: number;
-  achievements: number;
-}
+import { useUser } from '@/hooks/useUser';
+import type { UpdateUserProfileRequest } from '@/services/userService';
 
 interface ProfileStatsCardProps {
   title: string;
@@ -48,6 +36,7 @@ interface EditableFieldProps {
   icon: React.ComponentType<{ size?: number; className?: string }>;
   isEditing: boolean;
   onChange: (value: string) => void;
+  error?: string;
 }
 
 const ProfileStatsCard: React.FC<ProfileStatsCardProps> = ({ 
@@ -55,7 +44,7 @@ const ProfileStatsCard: React.FC<ProfileStatsCardProps> = ({
   value, 
   subtitle, 
   icon: Icon, 
-  trend = 'neutral' 
+  trend = 'neutral'
 }) => {
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 hover:shadow-lg hover:border-gray-300 transition-all duration-300 group">
@@ -97,11 +86,14 @@ const EditableField: React.FC<EditableFieldProps> = ({
   type = 'text',
   icon: Icon,
   isEditing,
-  onChange
+  onChange,
+  error
 }) => {
+  const inputClasses = `w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+    error ? 'border-red-300 bg-red-50' : 'border-gray-300'
+  }`;
+  
   if (isEditing) {
-    const inputClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200";
-    
     return (
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
@@ -123,6 +115,12 @@ const EditableField: React.FC<EditableFieldProps> = ({
             className={inputClasses}
           />
         )}
+        {error && (
+          <p className="text-sm text-red-600 flex items-center gap-1">
+            <AlertCircle size={14} />
+            {error}
+          </p>
+        )}
       </div>
     );
   }
@@ -142,79 +140,146 @@ const EditableField: React.FC<EditableFieldProps> = ({
 
 const ProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
-  const { user, logout } = useAuth();
+  const [editForm, setEditForm] = useState<UpdateUserProfileRequest>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [profile, setProfile] = useState<UserProfile>({
-    id: 'user_123',
-    name: 'Alex Thompson',
-    email: 'alex.thompson@email.com',
-    phone: '+1 (555) 123-4567',
-    location: 'San Francisco, CA',
-    joinDate: 'January 2023',
-    avatar: '/api/placeholder/120/120',
-    bio: 'Experienced algorithmic trader with a focus on momentum and RSI-based strategies. Always looking to optimize and improve trading performance.',
-    totalStrategies: 12,
-    activeStrategies: 5,
-    portfolioValue: '$12,450',
-    rank: 42,
-    achievements: 18
-  });
+  const { logout } = useAuth();
+  const { 
+    profile, 
+    loading, 
+    error, 
+    updating, 
+    uploadingAvatar,
+    updateProfile, 
+    uploadAvatar,
+    deleteAvatar,
+    clearError,
+    refetchProfile
+  } = useUser();
 
-  const [editedProfile, setEditedProfile] = useState<UserProfile>(profile);
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 size={48} className="animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
 
+  // Show error state
+  if (error && !profile) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center bg-red-50 p-8 rounded-2xl border border-red-200">
+          <AlertCircle size={48} className="text-red-600 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-red-900 mb-2">Failed to load profile</h3>
+          <p className="text-red-700 mb-4">{error}</p>
+          <button
+            onClick={refetchProfile}
+            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return null;
+  }
+
+  // Get full name
+  const fullName = (profile.first_name || profile.last_name)
+    ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+    : null;
+
+  // Initialize edit form when editing starts
   const handleEdit = () => {
+    setEditForm({
+      first_name: profile.first_name || '',
+      last_name: profile.last_name || '',
+      username: profile.username || '',
+      phone: profile.phone || '',
+      location: profile.location || '',
+      bio: profile.bio || '',
+    });
     setIsEditing(true);
-    setEditedProfile({ ...profile });
   };
 
-  const handleSave = () => {
-    setProfile(editedProfile);
-    setIsEditing(false);
-    // Here you would typically make an API call to save the changes
-    // await updateProfile(editedProfile);
+  const handleSave = async () => {
+    clearError();
+    const success = await updateProfile(editForm);
+    if (success) {
+      setIsEditing(false);
+      setEditForm({});
+    }
   };
 
   const handleCancel = () => {
-    setEditedProfile(profile);
+    setEditForm({});
     setIsEditing(false);
+    clearError();
   };
 
-  const handleLogout = () => {
-    logout();
-  };
-
-  const updateField = (field: keyof UserProfile, value: string) => {
-    setEditedProfile(prev => ({
+  const updateField = (field: keyof UpdateUserProfileRequest, value: string) => {
+    setEditForm(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Basic validation
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+      
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      
+      await uploadAvatar(file);
+    }
+  };
+
+  const handleDeleteAvatar = async () => {
+    await deleteAvatar();
+  };
+
+  // Mock stats for now (until backend is ready)
   const statsCards = [
     {
       title: 'Portfolio Value',
-      value: profile.portfolioValue,
+      value: '$12,450',
       icon: DollarSign,
       trend: 'up' as const,
       subtitle: '+12.5% this month'
     },
     {
       title: 'Active Strategies',
-      value: profile.activeStrategies,
+      value: 5,
       icon: Activity,
       trend: 'up' as const,
       subtitle: '2 new this week'
     },
     {
       title: 'Leaderboard Rank',
-      value: `#${profile.rank}`,
+      value: '#42',
       icon: Trophy,
       trend: 'up' as const,
       subtitle: '↑8 positions'
     },
     {
       title: 'Achievements',
-      value: profile.achievements,
+      value: 18,
       icon: Star,
       trend: 'up' as const,
       subtitle: '3 unlocked recently'
@@ -223,6 +288,22 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Global error display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <AlertCircle size={20} className="text-red-600 mr-2" />
+            <span className="text-red-800">{error}</span>
+          </div>
+          <button
+            onClick={clearError}
+            className="text-red-600 hover:text-red-800"
+          >
+            <X size={20} />
+          </button>
+        </div>
+      )}
+
       {/* Header with action buttons */}
       <div className="flex items-center justify-between">
         <div>
@@ -233,7 +314,8 @@ const ProfilePage: React.FC = () => {
         {!isEditing ? (
           <button
             onClick={handleEdit}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105"
+            disabled={updating}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Edit3 size={20} />
             <span>Edit Profile</span>
@@ -242,14 +324,20 @@ const ProfilePage: React.FC = () => {
           <div className="flex gap-2">
             <button
               onClick={handleSave}
-              className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105"
+              disabled={updating}
+              className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Save size={20} />
-              <span>Save</span>
+              {updating ? (
+                <Loader2 size={20} className="animate-spin" />
+              ) : (
+                <Save size={20} />
+              )}
+              <span>{updating ? 'Saving...' : 'Save'}</span>
             </button>
             <button
               onClick={handleCancel}
-              className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-6 py-3 rounded-xl hover:from-gray-700 hover:to-gray-800 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105"
+              disabled={updating}
+              className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-6 py-3 rounded-xl hover:from-gray-700 hover:to-gray-800 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <X size={20} />
               <span>Cancel</span>
@@ -258,7 +346,7 @@ const ProfilePage: React.FC = () => {
         )}
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats Grid - Mock data for now */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statsCards.map((card, index) => (
           <ProfileStatsCard key={index} {...card} />
@@ -274,25 +362,41 @@ const ProfilePage: React.FC = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <EditableField
-                label="Full Name"
-                value={isEditing ? editedProfile.name : profile.name}
+                label="First Name"
+                value={isEditing ? editForm.first_name || '' : profile.first_name || ''}
                 icon={User}
                 isEditing={isEditing}
-                onChange={(value) => updateField('name', value)}
+                onChange={(value) => updateField('first_name', value)}
+              />
+
+              <EditableField
+                label="Last Name"
+                value={isEditing ? editForm.last_name || '' : profile.last_name || ''}
+                icon={User}
+                isEditing={isEditing}
+                onChange={(value) => updateField('last_name', value)}
+              />
+
+              <EditableField
+                label="Username"
+                value={isEditing ? editForm.username || '' : profile.username || ''}
+                icon={User}
+                isEditing={isEditing}
+                onChange={(value) => updateField('username', value)}
               />
 
               <EditableField
                 label="Email Address"
-                value={isEditing ? editedProfile.email : profile.email}
+                value={profile.email || ''}
                 type="email"
                 icon={Mail}
-                isEditing={isEditing}
-                onChange={(value) => updateField('email', value)}
+                isEditing={false} // Email should not be editable
+                onChange={() => {}}
               />
 
               <EditableField
                 label="Phone Number"
-                value={isEditing ? editedProfile.phone : profile.phone}
+                value={isEditing ? editForm.phone || '' : profile.phone || ''}
                 type="tel"
                 icon={Phone}
                 isEditing={isEditing}
@@ -301,7 +405,7 @@ const ProfilePage: React.FC = () => {
 
               <EditableField
                 label="Location"
-                value={isEditing ? editedProfile.location : profile.location}
+                value={isEditing ? editForm.location || '' : profile.location || ''}
                 icon={MapPin}
                 isEditing={isEditing}
                 onChange={(value) => updateField('location', value)}
@@ -311,7 +415,7 @@ const ProfilePage: React.FC = () => {
             <div className="mt-6">
               <EditableField
                 label="Bio"
-                value={isEditing ? editedProfile.bio : profile.bio}
+                value={isEditing ? editForm.bio || '' : profile.bio || ''}
                 type="textarea"
                 icon={Edit3}
                 isEditing={isEditing}
@@ -330,19 +434,47 @@ const ProfilePage: React.FC = () => {
             <div className="text-center">
               <div className="relative inline-block">
                 <img
-                  src={profile.avatar}
-                  alt={profile.name}
+                  src={profile.avatar || '/api/placeholder/96/96'}
+                  alt={fullName || profile.username || 'Profile'}
                   className="w-24 h-24 rounded-full object-cover border-4 border-gray-100"
                 />
                 {isEditing && (
-                  <button className="absolute bottom-0 right-0 p-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105">
-                    <Camera size={16} />
-                  </button>
+                  <div className="absolute bottom-0 right-0 flex gap-1">
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingAvatar}
+                      className="p-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploadingAvatar ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Camera size={16} />
+                      )}
+                    </button>
+                    {profile.avatar && (
+                      <button 
+                        onClick={handleDeleteAvatar}
+                        disabled={uploadingAvatar || updating}
+                        className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
               <p className="text-sm text-gray-600 mt-3">
                 {isEditing ? 'Click camera icon to change' : 'Profile photo'}
               </p>
+              
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
             </div>
           </div>
 
@@ -353,19 +485,28 @@ const ProfilePage: React.FC = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Member Since</span>
-                <span className="font-medium text-gray-900">{profile.joinDate}</span>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Account Type</span>
-                <span className="px-3 py-1 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-full text-sm font-medium">
-                  Premium
+                <span className="font-medium text-gray-900">
+                  {profile.created_at ? new Date(profile.created_at).toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long' 
+                  }) : 'N/A'}
                 </span>
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Total Strategies</span>
-                <span className="font-medium text-gray-900">{profile.totalStrategies}</span>
+                <span className="text-gray-600">Account Type</span>
+                <span className="px-3 py-1 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-full text-sm font-medium capitalize">
+                  {profile.role}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Balance</span>
+                <span className="font-medium text-gray-900">
+                  ${typeof profile.balance === 'number' 
+                    ? profile.balance.toFixed(2) 
+                    : profile.balance || '0.00'}
+                </span>
               </div>
               
               <div className="pt-4 border-t border-gray-200 space-y-3">
@@ -374,7 +515,7 @@ const ProfilePage: React.FC = () => {
                 </button>
                 
                 <button
-                  onClick={handleLogout}
+                  onClick={logout}
                   className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-3 rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 font-medium flex items-center justify-center space-x-2"
                 >
                   <LogOut size={18} />
